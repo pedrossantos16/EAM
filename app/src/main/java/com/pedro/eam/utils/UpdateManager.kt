@@ -18,9 +18,8 @@ data class UpdateInfo(
 )
 
 object UpdateManager {
-    // Substitua pelo link raw do seu version.json no GitHub após subir o projeto
-    // Ex: "https://raw.githubusercontent.com/seu-usuario/eam/main/version.json"
-    private const val VERSION_JSON_URL = "https://raw.githubusercontent.com/pedrossantos16/EAM/main/version.json"
+    // URL atualizada para o branch 'master' e nome exato do repositório 'EAM'
+    private const val VERSION_JSON_URL = "https://raw.githubusercontent.com/pedrossantos16/EAM/master/version.json"
 
     suspend fun checkForUpdate(currentVersionCode: Int): UpdateInfo? {
         return withContext(Dispatchers.IO) {
@@ -31,6 +30,8 @@ object UpdateManager {
                 connection.connectTimeout = 5000
                 connection.readTimeout = 5000
 
+                Log.d("UpdateManager", "Response Code: ${connection.responseCode}")
+
                 if (connection.responseCode == 200) {
                     val jsonStr = connection.inputStream.bufferedReader().use { it.readText() }
                     val json = JSONObject(jsonStr)
@@ -38,6 +39,8 @@ object UpdateManager {
                     val versionName = json.getString("versionName")
                     val apkUrl = json.getString("apkUrl")
                     val releaseNotes = json.optString("releaseNotes", "Nova atualização disponível!")
+
+                    Log.d("UpdateManager", "Remote Version: $remoteVersionCode, Current Version: $currentVersionCode")
 
                     if (remoteVersionCode > currentVersionCode) {
                         return@withContext UpdateInfo(remoteVersionCode, versionName, apkUrl, releaseNotes)
