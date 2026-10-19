@@ -20,7 +20,7 @@ data class UpdateInfo(
 object UpdateManager {
     // Substitua pelo link raw do seu version.json no GitHub após subir o projeto
     // Ex: "https://raw.githubusercontent.com/seu-usuario/eam/main/version.json"
-    private const val VERSION_JSON_URL = "https://raw.githubusercontent.com/pedrossantos16/eam/main/version.json"
+    private const val VERSION_JSON_URL = "https://raw.githubusercontent.com/pedrossantos16/EAM/main/version.json"
 
     suspend fun checkForUpdate(currentVersionCode: Int): UpdateInfo? {
         return withContext(Dispatchers.IO) {
