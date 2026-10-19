@@ -26,6 +26,7 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarScreen(
+    contentPadding: PaddingValues = PaddingValues(0.dp),
     onNavigateToSchedule: () -> Unit,
     onNavigateToEvents: () -> Unit
 ) {
@@ -67,12 +68,13 @@ fun CalendarScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+                .padding(contentPadding)
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             // Section 1: Absence Management Calendar
             item {
+                Spacer(modifier = Modifier.height(padding.calculateTopPadding()))
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -247,6 +249,7 @@ fun CalendarScreen(
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
             }
         }
     }

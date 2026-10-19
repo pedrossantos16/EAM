@@ -26,7 +26,7 @@ import com.pedro.eam.data.getFormattedDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EventsScreen() {
+fun EventsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
     var showAddEventDialog by remember { mutableStateOf(false) }
     var expandedEventId by remember { mutableStateOf<String?>(null) }
 
@@ -61,11 +61,12 @@ fun EventsScreen() {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+                .padding(contentPadding)
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
+                Spacer(modifier = Modifier.height(padding.calculateTopPadding()))
                 Text("Provas, Trabalhos e Compromissos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text("Clique em qualquer evento para visualizar sua descrição detalhada.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -133,7 +134,6 @@ fun EventsScreen() {
                             }
                         }
 
-                        // User-defined description displayed only when clicked
                         AnimatedVisibility(visible = isExpanded) {
                             Column(modifier = Modifier.padding(top = 12.dp)) {
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -148,6 +148,10 @@ fun EventsScreen() {
                         }
                     }
                 }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
             }
         }
     }
@@ -203,7 +207,7 @@ fun EventsScreen() {
                         Text("Tipo: ${eventType.label}")
                     }
                     DropdownMenu(expanded = expandedTypeMenu, onDismissRequest = { expandedTypeMenu = false }) {
-                        EventType.values().forEach { t ->
+                        EventType.entries.forEach { t ->
                             DropdownMenuItem(
                                 text = { Text(t.label) },
                                 onClick = {

@@ -16,7 +16,7 @@ import com.pedro.eam.ui.components.BarChartData
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnalyticsScreen() {
+fun AnalyticsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
     val subjects = EamRepository.subjects
     val events = EamRepository.events
 
@@ -66,11 +66,12 @@ fun AnalyticsScreen() {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+                .padding(contentPadding)
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             item {
+                Spacer(modifier = Modifier.height(padding.calculateTopPadding()))
                 Text("Visão Analítica Completa", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text("Relação detalhada de faltas, limites e distribuição de eventos acadêmicos.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -121,6 +122,7 @@ fun AnalyticsScreen() {
                         )
                     }
                 }
+                Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
             }
         }
     }

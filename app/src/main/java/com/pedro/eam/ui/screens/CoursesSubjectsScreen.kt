@@ -19,7 +19,7 @@ import com.pedro.eam.data.EamRepository
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CoursesSubjectsScreen() {
+fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
     var showAddCourseDialog by remember { mutableStateOf(false) }
     var showAddSubjectDialog by remember { mutableStateOf(false) }
 
@@ -65,11 +65,12 @@ fun CoursesSubjectsScreen() {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+                .padding(contentPadding)
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
+                Spacer(modifier = Modifier.height(padding.calculateTopPadding()))
                 Text("Seus Cursos e Matérias Vinculadas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text("Gerencie as matérias. As faltas são registradas no calendário da Visão Geral.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -158,6 +159,10 @@ fun CoursesSubjectsScreen() {
                         }
                     }
                 }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
             }
         }
     }
@@ -269,7 +274,7 @@ fun CoursesSubjectsScreen() {
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddCourseDialog = false }) {
+                TextButton(onClick = { showAddSubjectDialog = false }) {
                     Text("Cancelar")
                 }
             }

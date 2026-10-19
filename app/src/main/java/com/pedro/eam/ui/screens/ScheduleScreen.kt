@@ -2,7 +2,6 @@ package com.pedro.eam.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -28,7 +27,7 @@ val daysOfWeekMap = mapOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScheduleScreen() {
+fun ScheduleScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedSubjectId by remember { mutableStateOf(EamRepository.subjects.firstOrNull()?.id ?: "") }
     var selectedDayOfWeek by remember { mutableStateOf(1) }
@@ -61,11 +60,12 @@ fun ScheduleScreen() {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+                .padding(contentPadding)
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
+                Spacer(modifier = Modifier.height(padding.calculateTopPadding()))
                 Text("Organização de Aulas por Dia da Semana", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text("Associe cada matéria aos seus horários e dias específicos.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -78,7 +78,6 @@ fun ScheduleScreen() {
                 }
             }
 
-            // Group by Day of Week
             val grouped = scheduleItems.groupBy { it.dayOfWeek }
 
             daysOfWeekMap.forEach { (dayNum, dayName) ->
@@ -122,6 +121,10 @@ fun ScheduleScreen() {
                         }
                     }
                 }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
             }
         }
     }

@@ -129,8 +129,11 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
+                    containerColor = MaterialTheme.colorScheme.background,
                     bottomBar = {
-                        NavigationBar {
+                        NavigationBar(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ) {
                             tabs.forEach { tab ->
                                 NavigationBarItem(
                                     selected = currentTab == tab,
@@ -143,20 +146,19 @@ class MainActivity : ComponentActivity() {
                     }
                 ) { innerPadding ->
                     Surface(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding),
+                        modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
                         when (currentTab) {
                             is BottomNavTab.Calendar -> CalendarScreen(
+                                contentPadding = innerPadding,
                                 onNavigateToSchedule = { currentTab = BottomNavTab.Schedule },
                                 onNavigateToEvents = { currentTab = BottomNavTab.Events }
                             )
-                            is BottomNavTab.Courses -> CoursesSubjectsScreen()
-                            is BottomNavTab.Schedule -> ScheduleScreen()
-                            is BottomNavTab.Events -> EventsScreen()
-                            is BottomNavTab.Analytics -> AnalyticsScreen()
+                            is BottomNavTab.Courses -> CoursesSubjectsScreen(contentPadding = innerPadding)
+                            is BottomNavTab.Schedule -> ScheduleScreen(contentPadding = innerPadding)
+                            is BottomNavTab.Events -> EventsScreen(contentPadding = innerPadding)
+                            is BottomNavTab.Analytics -> AnalyticsScreen(contentPadding = innerPadding)
                         }
                     }
                 }
