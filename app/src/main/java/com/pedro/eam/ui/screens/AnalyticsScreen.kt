@@ -21,11 +21,12 @@ fun AnalyticsScreen() {
     val events = EamRepository.events
 
     val absencesChartData = subjects.map { sub ->
+        val absCount = EamRepository.getAbsenceCount(sub.id)
         BarChartData(
             label = sub.name,
-            value = sub.absences.toFloat(),
+            value = absCount.toFloat(),
             maxValue = sub.maxAbsences.toFloat().coerceAtLeast(5f),
-            color = if (sub.absences >= sub.maxAbsences * 0.7f) Color(0xFFE57373) else Color(0xFF64B5F6),
+            color = if (absCount >= sub.maxAbsences * 0.7f) Color(0xFFE57373) else Color(0xFF64B5F6),
             secondaryValue = sub.maxAbsences.toFloat(),
             secondaryColor = Color.Gray
         )
@@ -83,7 +84,7 @@ fun AnalyticsScreen() {
                     Column(modifier = Modifier.padding(16.dp)) {
                         BarChart(
                             title = "1. Faltas vs. Limite Máximo por Matéria",
-                            subtitle = "Barras azuis/vermelhas = Faltas atuais. Barras cinzas = Limite permitido.",
+                            subtitle = "Barras azuis/vermelhas = Faltas atuais (via calendário). Barras cinzas = Limite permitido.",
                             items = absencesChartData
                         )
                     }

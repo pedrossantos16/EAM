@@ -3,7 +3,6 @@ package com.pedro.eam.data
 import androidx.compose.runtime.mutableStateListOf
 import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
@@ -18,9 +17,25 @@ data class Subject(
     val courseId: String,
     val name: String,
     val professor: String = "",
-    val absences: Int = 0,
     val maxAbsences: Int = 15,
     val room: String = ""
+)
+
+// Schedule / Grade Curricular item
+data class ScheduleItem(
+    val id: String = UUID.randomUUID().toString(),
+    val subjectId: String,
+    val dayOfWeek: Int, // 1 = Segunda, 2 = Terça, 3 = Quarta, 4 = Quinta, 5 = Sexta, 6 = Sábado, 7 = Domingo
+    val startTime: String, // e.g. "08:00"
+    val endTime: String,   // e.g. "09:40"
+    val room: String = ""
+)
+
+// Absence record per date and subject
+data class AbsenceRecord(
+    val id: String = UUID.randomUUID().toString(),
+    val subjectId: String,
+    val date: String // YYYY-MM-DD
 )
 
 enum class EventType(val label: String) {
@@ -55,11 +70,20 @@ object EamRepository {
     )
 
     val subjects = mutableStateListOf(
-        Subject(id = "s1", courseId = "c1", name = "Cálculo I", professor = "Dr. Carlos", absences = 2, maxAbsences = 15, room = "Sala 101"),
-        Subject(id = "s2", courseId = "c1", name = "Estrutura de Dados", professor = "Dra. Ana", absences = 4, maxAbsences = 12, room = "Lab 03"),
-        Subject(id = "s3", courseId = "c2", name = "Desenvolvimento Mobile", professor = "Prof. Marcos", absences = 1, maxAbsences = 10, room = "Lab 05"),
-        Subject(id = "s4", courseId = "c2", name = "Banco de Dados", professor = "Dra. Beatriz", absences = 3, maxAbsences = 15, room = "Sala 204")
+        Subject(id = "s1", courseId = "c1", name = "Cálculo I", professor = "Dr. Carlos", maxAbsences = 15, room = "Sala 101"),
+        Subject(id = "s2", courseId = "c1", name = "Estrutura de Dados", professor = "Dra. Ana", maxAbsences = 12, room = "Lab 03"),
+        Subject(id = "s3", courseId = "c2", name = "Desenvolvimento Mobile", professor = "Prof. Marcos", maxAbsences = 10, room = "Lab 05"),
+        Subject(id = "s4", courseId = "c2", name = "Banco de Dados", professor = "Dra. Beatriz", maxAbsences = 15, room = "Sala 204")
     )
+
+    val scheduleItems = mutableStateListOf(
+        ScheduleItem(id = "sch1", subjectId = "s1", dayOfWeek = 1, startTime = "07:30", endTime = "09:10", room = "Sala 101"),
+        ScheduleItem(id = "sch2", subjectId = "s2", dayOfWeek = 2, startTime = "09:30", endTime = "11:10", room = "Lab 03"),
+        ScheduleItem(id = "sch3", subjectId = "s3", dayOfWeek = 3, startTime = "13:30", endTime = "15:10", room = "Lab 05"),
+        ScheduleItem(id = "sch4", subjectId = "s4", dayOfWeek = 4, startTime = "15:30", endTime = "17:10", room = "Sala 204")
+    )
+
+    val absenceRecords = mutableStateListOf<AbsenceRecord>()
 
     val events = mutableStateListOf(
         EventItem(
@@ -101,6 +125,10 @@ object EamRepository {
     }
 
     fun removeCourse(courseId: String) {
+        val subIds = subjects.filter { it.courseId == courseId }.map { it.id }
+        scheduleItems.removeAll { subIds.contains(it.subjectId) }
+        absenceRecords.removeAll { subIds.contains(it.subjectId) }
+        events.removeAll { subIds.contains(it.subjectId) }
         subjects.removeAll { it.courseId == courseId }
         courses.removeAll { it.id == courseId }
     }
@@ -110,21 +138,51 @@ object EamRepository {
     }
 
     fun removeSubject(subjectId: String) {
+        scheduleItems.removeAll { it.subjectId == subjectId }
+        absenceRecords.removeAll { it.subjectId == subjectId }
         events.removeAll { it.subjectId == subjectId }
         subjects.removeAll { it.id == subjectId }
     }
 
-    fun updateAbsences(subjectId: String, delta: Int) {
-        val index = subjects.indexOfFirst { it.id == subjectId }
-        if (index != -1) {
-            val sub = subjects[index]
-            val newAbs = (sub.absences + delta).coerceAtLeast(0)
-            subjects[index] = sub.copy(absences = newAbs)
+    fun addScheduleItem(subjectId: String, dayOfWeek: Int, startTime: String, endTime: String, room: String) {
+        scheduleItems.add(ScheduleItem(subjectId = subjectId, dayOfWeek = dayOfWeek, startTime = startTime, endTime = endTime, room = room))
+    }
+
+    fun removeScheduleItem(itemId: String) {
+        scheduleItems.removeAll { it.id == itemId }
+    }
+
+    // Check if absent for subject on date
+    fun isAbsentOnDate(subjectId: String, date: String): Boolean {
+        return absenceRecords.any { it.subjectId == subjectId && it.date == date }
+    }
+
+    // Toggle absence for subject on date
+    fun setAbsenceForDate(subjectId: String, date: String, isAbsent: Boolean) {
+        if (isAbsent) {
+            if (!isAbsentOnDate(subjectId, date)) {
+                absenceRecords.add(AbsenceRecord(subjectId = subjectId, date = date))
+            }
+        } else {
+            absenceRecords.removeAll { it.subjectId == subjectId && it.date == date }
         }
+    }
+
+    // Total absences count for a subject = count of absenceRecords for that subject
+    fun getAbsenceCount(subjectId: String): Int {
+        return absenceRecords.count { it.subjectId == subjectId }
     }
 
     fun addEvent(subjectId: String, title: String, description: String, date: String, type: EventType) {
         events.add(EventItem(subjectId = subjectId, title = title, description = description, date = date, type = type))
+    }
+
+    fun updateEvent(eventId: String, title: String, description: String, date: String, type: EventType) {
+        val index = events.indexOfFirst { it.id == eventId }
+        if (index != -1) {
+            val ev = events[index]
+            events[index] = ev.copy(title = title, description = description, date = date, type = type)
+        }
     }
 
     fun removeEvent(eventId: String) {

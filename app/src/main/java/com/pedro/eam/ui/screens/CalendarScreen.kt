@@ -1,26 +1,13 @@
 package com.pedro.eam.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AddCircleOutline
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.EventNote
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.RemoveCircleOutline
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,39 +15,48 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.pedro.eam.data.EamRepository
-import java.util.Locale
+import com.pedro.eam.data.EventItem
+import com.pedro.eam.data.EventType
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarScreen(
-    onNavigateToEvents: () -> Unit,
-    onNavigateToSubjects: () -> Unit
+    onNavigateToSchedule: () -> Unit,
+    onNavigateToEvents: () -> Unit
 ) {
-    var expandedEventId by remember { mutableStateOf<String?>(null) }
-    var selectedDateFilter by remember { mutableStateOf<String?>(null) }
+    var selectedDateForAbsence by remember { mutableStateOf<String?>(null) }
+    var selectedEventForDialog by remember { mutableStateOf<EventItem?>(null) }
+    var isEditingEvent by remember { mutableStateOf(false) }
+
+    var editTitle by remember { mutableStateOf("") }
+    var editDesc by remember { mutableStateOf("") }
+    var editType by remember { mutableStateOf(EventType.PROVA) }
 
     val subjects = EamRepository.subjects
+    val scheduleItems = EamRepository.scheduleItems
     val events = EamRepository.events
 
-    val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(java.util.Date())
-    
-    val filteredEvents = if (selectedDateFilter != null) {
-        events.filter { it.date == selectedDateFilter }
-    } else {
-        events.sortedBy { it.date }
-    }
+    val calendar = Calendar.getInstance()
+    val currentYear = calendar.get(Calendar.YEAR)
+    val currentMonth = calendar.get(Calendar.MONTH)
+    val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.forLanguageTag("pt-BR"))
+    val currentMonthName = monthFormat.format(calendar.time).replaceFirstChar { it.uppercase() }
+
+    calendar.set(Calendar.DAY_OF_MONTH, 1)
+    val firstDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK) - 1
+    val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+
+    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Agenda & Visão Geral", fontWeight = FontWeight.Bold) },
-                actions = {
-                    IconButton(onClick = { selectedDateFilter = null }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Limpar Filtro de Data")
-                    }
-                },
+                title = { Text("Visão Geral & Calendário", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -73,14 +69,14 @@ fun CalendarScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Quick Status Banner
+            // Section 1: Absence Management Calendar
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
@@ -89,193 +85,163 @@ fun CalendarScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
-                                Text("Resumo Rápido", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("${subjects.size} Matérias cadastradas • ${events.size} Eventos na agenda", style = MaterialTheme.typography.bodySmall)
+                                Text("Registro de Faltas por Dia", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("Clique em um dia para marcar/desmarcar faltas nas aulas.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Icon(Icons.Default.EventNote, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            IconButton(onClick = onNavigateToSchedule) {
+                                Icon(Icons.Default.Schedule, contentDescription = "Ver Grade", tint = MaterialTheme.colorScheme.primary)
+                            }
                         }
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = onNavigateToSubjects,
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                            ) {
-                                Icon(Icons.Default.List, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Ver Faltas")
+                        Text(currentMonthName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                            listOf("Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb").forEach { day ->
+                                Text(day, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(36.dp), textAlign = TextAlign.Center)
                             }
-                            OutlinedButton(
-                                onClick = onNavigateToEvents,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Novo Evento")
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        val totalCells = daysInMonth + firstDayOfWeek
+                        val rows = (totalCells + 6) / 7
+
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            for (row in 0 until rows) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                                    for (col in 0 until 7) {
+                                        val dayIndex = row * 7 + col
+                                        val dayNumber = dayIndex - firstDayOfWeek + 1
+
+                                        if (dayNumber in 1..daysInMonth) {
+                                            val calDay = Calendar.getInstance().apply {
+                                                set(currentYear, currentMonth, dayNumber)
+                                            }
+                                            val dateStr = dateFormat.format(calDay.time)
+                                            val dow = calDay.get(Calendar.DAY_OF_WEEK)
+                                            val mappedDow = if (dow == Calendar.SUNDAY) 7 else dow - 1
+                                            val hasClasses = scheduleItems.any { it.dayOfWeek == mappedDow }
+                                            val hasAbsence = subjects.any { EamRepository.isAbsentOnDate(it.id, dateStr) }
+
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(38.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        when {
+                                                            hasAbsence -> MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
+                                                            hasClasses -> MaterialTheme.colorScheme.primaryContainer
+                                                            else -> Color.Transparent
+                                                        }
+                                                    )
+                                                    .clickable {
+                                                        selectedDateForAbsence = dateStr
+                                                    },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = dayNumber.toString(),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = if (hasClasses) FontWeight.Bold else FontWeight.Normal,
+                                                    color = if (hasAbsence) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
+                                        } else {
+                                            Spacer(modifier = Modifier.size(38.dp))
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
 
-            // Absence Warning Section
+            // Section 2: Events Calendar & Interaction
             item {
-                Text("Alerta de Faltas por Matéria", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
-
-            items(subjects) { subject ->
-                val ratio = if (subject.maxAbsences > 0) subject.absences.toFloat() / subject.maxAbsences.toFloat() else 0f
-                val isNearLimit = ratio >= 0.7f
-
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isNearLimit) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                        else MaterialTheme.colorScheme.surfaceVariant
-                    )
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(subject.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
-                            Text("Faltas: ${subject.absences} / ${subject.maxAbsences} (Sala: ${subject.room})", style = MaterialTheme.typography.bodySmall)
-                            if (isNearLimit) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                                    Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Próximo do limite de faltas!", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                }
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Calendário de Eventos & Provas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("Dias com eventos destacados. Clique no dia para ver detalhes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            IconButton(onClick = onNavigateToEvents) {
+                                Icon(Icons.Default.Add, contentDescription = "Adicionar Evento", tint = MaterialTheme.colorScheme.primary)
                             }
                         }
-                        Row {
-                            IconButton(onClick = { EamRepository.updateAbsences(subject.id, -1) }) {
-                                Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Menos Falta", tint = MaterialTheme.colorScheme.primary)
-                            }
-                            IconButton(onClick = { EamRepository.updateAbsences(subject.id, 1) }) {
-                                Icon(Icons.Default.AddCircleOutline, contentDescription = "Mais Falta", tint = MaterialTheme.colorScheme.error)
-                            }
-                        }
-                    }
-                }
-            }
 
-            // Events Section
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (selectedDateFilter != null) "Eventos em $selectedDateFilter" else "Próximos Eventos & Provas",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (selectedDateFilter != null) {
-                        TextButton(onClick = { selectedDateFilter = null }) {
-                            Text("Mostrar Todos")
-                        }
-                    }
-                }
-            }
+                        Spacer(modifier = Modifier.height(12.dp))
 
-            if (filteredEvents.isEmpty()) {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text("Nenhum evento cadastrado para esta data.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            } else {
-                items(filteredEvents) { event ->
-                    val subject = subjects.find { it.id == event.subjectId }
-                    val isExpanded = expandedEventId == event.id
-                    val isTodayOrSoon = event.date >= todayStr
+                        val totalCells = daysInMonth + firstDayOfWeek
+                        val rows = (totalCells + 6) / 7
 
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                expandedEventId = if (isExpanded) null else event.id
-                            },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .clip(CircleShape)
-                                            .background(if (event.isCompleted) Color.Gray else MaterialTheme.colorScheme.primary)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Column {
-                                        Text(
-                                            text = event.title,
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            color = if (event.isCompleted) Color.Gray else MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            text = "${subject?.name ?: "Geral"} • ${event.type.label} • 📅 ${event.date}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            for (row in 0 until rows) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                                    for (col in 0 until 7) {
+                                        val dayIndex = row * 7 + col
+                                        val dayNumber = dayIndex - firstDayOfWeek + 1
+
+                                        if (dayNumber in 1..daysInMonth) {
+                                            val calDay = Calendar.getInstance().apply {
+                                                set(currentYear, currentMonth, dayNumber)
+                                            }
+                                            val dateStr = dateFormat.format(calDay.time)
+                                            val dayEvents = events.filter { it.date == dateStr }
+                                            val hasEvent = dayEvents.isNotEmpty()
+                                            val allCompleted = hasEvent && dayEvents.all { it.isCompleted }
+
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(38.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        when {
+                                                            allCompleted -> Color(0xFF81C784).copy(alpha = 0.5f)
+                                                            hasEvent -> MaterialTheme.colorScheme.tertiaryContainer
+                                                            else -> Color.Transparent
+                                                        }
+                                                    )
+                                                    .clickable(enabled = hasEvent) {
+                                                        if (hasEvent) {
+                                                            selectedEventForDialog = dayEvents.first()
+                                                            isEditingEvent = false
+                                                        }
+                                                    },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                    Text(
+                                                        text = dayNumber.toString(),
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = if (hasEvent) FontWeight.Bold else FontWeight.Normal,
+                                                        color = if (hasEvent) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    if (hasEvent) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(6.dp)
+                                                                .clip(CircleShape)
+                                                                .background(if (allCompleted) Color.Green else MaterialTheme.colorScheme.tertiary)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            Spacer(modifier = Modifier.size(38.dp))
+                                        }
                                     }
-                                }
-
-                                Row {
-                                    IconButton(onClick = { EamRepository.toggleEventComplete(event.id) }) {
-                                        Icon(
-                                            imageVector = if (event.isCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                                            contentDescription = "Concluir Evento",
-                                            tint = if (event.isCompleted) Color.Green else MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                    Icon(
-                                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                        contentDescription = "Expandir Descrição",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-
-                            if (isTodayOrSoon && !event.isCompleted) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Aviso: Evento próximo!", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                }
-                            }
-
-                            AnimatedVisibility(visible = isExpanded) {
-                                Column(modifier = Modifier.padding(top = 12.dp)) {
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "Descrição do Evento:",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = if (event.description.isBlank()) "Nenhuma descrição informada." else event.description,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
                                 }
                             }
                         }
@@ -283,5 +249,156 @@ fun CalendarScreen(
                 }
             }
         }
+    }
+
+    // Dialog 1: Absence Registration for Selected Date
+    if (selectedDateForAbsence != null) {
+        val dateStr = selectedDateForAbsence!!
+        val cal = Calendar.getInstance()
+        try {
+            dateFormat.parse(dateStr)?.let { cal.time = it }
+        } catch (_: Exception) {}
+        val dow = cal.get(Calendar.DAY_OF_WEEK)
+        val mappedDow = if (dow == Calendar.SUNDAY) 7 else dow - 1
+        val dayClasses = scheduleItems.filter { it.dayOfWeek == mappedDow }
+
+        AlertDialog(
+            onDismissRequest = { selectedDateForAbsence = null },
+            title = { Text("Aulas em $dateStr") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (dayClasses.isEmpty()) {
+                        Text("Nenhuma aula cadastrada na grade para este dia da semana.", style = MaterialTheme.typography.bodyMedium)
+                    } else {
+                        Text("Desmarque o item caso tenha faltado à aula:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        dayClasses.forEach { sch ->
+                            val sub = subjects.find { it.id == sch.subjectId }
+                            val subName = sub?.name ?: "Matéria"
+                            var isPresent by remember(dateStr, sch.id) {
+                                mutableStateOf(!EamRepository.isAbsentOnDate(sch.subjectId, dateStr))
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(subName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                                    Text("⏰ ${sch.startTime} - ${sch.endTime} • Sala: ${sch.room.ifBlank { sub?.room ?: "N/A" }}", style = MaterialTheme.typography.bodySmall)
+                                }
+                                Checkbox(
+                                    checked = isPresent,
+                                    onCheckedChange = { checked ->
+                                        isPresent = checked
+                                        EamRepository.setAbsenceForDate(sch.subjectId, dateStr, !checked)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { selectedDateForAbsence = null }) {
+                    Text("Concluir")
+                }
+            }
+        )
+    }
+
+    // Dialog 2: Event Details / Edit / Delete / Finish
+    if (selectedEventForDialog != null) {
+        val ev = selectedEventForDialog!!
+        val sub = subjects.find { it.id == ev.subjectId }
+
+        AlertDialog(
+            onDismissRequest = { selectedEventForDialog = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (ev.isCompleted) "✅ [Concluído] ${ev.title}" else ev.title, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Matéria: ${sub?.name ?: "Geral"}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    Text("Tipo: ${ev.type.label} • Data: ${ev.date}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    
+                    if (isEditingEvent) {
+                        OutlinedTextField(
+                            value = editTitle,
+                            onValueChange = { editTitle = it },
+                            label = { Text("Título") },
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = editDesc,
+                            onValueChange = { editDesc = it },
+                            label = { Text("Descrição") }
+                        )
+                    } else {
+                        Text("Descrição do Evento:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            text = if (ev.description.isBlank()) "Nenhuma descrição informada." else ev.description,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!ev.isCompleted && !isEditingEvent) {
+                        Button(
+                            onClick = {
+                                EamRepository.toggleEventComplete(ev.id)
+                                selectedEventForDialog = events.find { it.id == ev.id }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                        ) {
+                            Text("Finalizar")
+                        }
+                    }
+
+                    if (!ev.isCompleted) {
+                        if (isEditingEvent) {
+                            Button(onClick = {
+                                EamRepository.updateEvent(ev.id, editTitle, editDesc, ev.date, editType)
+                                selectedEventForDialog = events.find { it.id == ev.id }
+                                isEditingEvent = false
+                            }) {
+                                Text("Salvar")
+                            }
+                        } else {
+                            OutlinedButton(onClick = {
+                                isEditingEvent = true
+                                editTitle = ev.title
+                                editDesc = ev.description
+                                editType = ev.type
+                            }) {
+                                Text("Editar")
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    EamRepository.removeEvent(ev.id)
+                                    selectedEventForDialog = null
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                            ) {
+                                Text("Excluir", color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+
+                    Button(onClick = { selectedEventForDialog = null }) {
+                        Text("Fechar")
+                    }
+                }
+            }
+        )
     }
 }

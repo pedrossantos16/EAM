@@ -6,10 +6,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.Class
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -73,7 +71,7 @@ fun CoursesSubjectsScreen() {
         ) {
             item {
                 Text("Seus Cursos e Matérias Vinculadas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("Gerencie as matérias e controle suas faltas de forma dedicada.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Gerencie as matérias. As faltas são registradas no calendário da Visão Geral.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             if (courses.isEmpty()) {
@@ -124,7 +122,8 @@ fun CoursesSubjectsScreen() {
                             Text("Nenhuma matéria neste curso.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         } else {
                             courseSubjects.forEach { sub ->
-                                val ratio = if (sub.maxAbsences > 0) sub.absences.toFloat() / sub.maxAbsences.toFloat() else 0f
+                                val absCount = EamRepository.getAbsenceCount(sub.id)
+                                val ratio = if (sub.maxAbsences > 0) absCount.toFloat() / sub.maxAbsences.toFloat() else 0f
                                 val isOverOrNear = ratio >= 0.7f
 
                                 Card(
@@ -147,19 +146,11 @@ fun CoursesSubjectsScreen() {
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(sub.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
                                             Text("Prof: ${sub.professor.ifBlank { "Não informado" }} • Sala: ${sub.room.ifBlank { "N/A" }}", style = MaterialTheme.typography.bodySmall)
-                                            Text("Faltas: ${sub.absences} / Máx: ${sub.maxAbsences}", style = MaterialTheme.typography.bodySmall, color = if (isOverOrNear) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("Faltas registradas: $absCount / Máx: ${sub.maxAbsences}", style = MaterialTheme.typography.bodySmall, color = if (isOverOrNear) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
 
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            IconButton(onClick = { EamRepository.updateAbsences(sub.id, -1) }) {
-                                                Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Remover Falta", tint = MaterialTheme.colorScheme.primary)
-                                            }
-                                            IconButton(onClick = { EamRepository.updateAbsences(sub.id, 1) }) {
-                                                Icon(Icons.Default.AddCircleOutline, contentDescription = "Adicionar Falta", tint = MaterialTheme.colorScheme.error)
-                                            }
-                                            IconButton(onClick = { EamRepository.removeSubject(sub.id) }) {
-                                                Icon(Icons.Default.Delete, contentDescription = "Excluir Matéria", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
-                                            }
+                                        IconButton(onClick = { EamRepository.removeSubject(sub.id) }) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Excluir Matéria", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
                                         }
                                     }
                                 }
@@ -278,7 +269,7 @@ fun CoursesSubjectsScreen() {
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddSubjectDialog = false }) {
+                TextButton(onClick = { showAddCourseDialog = false }) {
                     Text("Cancelar")
                 }
             }

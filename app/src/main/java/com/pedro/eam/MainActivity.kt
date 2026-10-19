@@ -12,24 +12,28 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.pedro.eam.ui.screens.AnalyticsScreen
 import com.pedro.eam.ui.screens.CalendarScreen
 import com.pedro.eam.ui.screens.CoursesSubjectsScreen
 import com.pedro.eam.ui.screens.EventsScreen
+import com.pedro.eam.ui.screens.ScheduleScreen
 import com.pedro.eam.ui.theme.EAMTheme
 import com.pedro.eam.utils.UpdateInfo
 import com.pedro.eam.utils.UpdateManager
 import kotlinx.coroutines.launch
 
-sealed class BottomNavTab(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+sealed class BottomNavTab(val title: String, val icon: ImageVector) {
     object Calendar : BottomNavTab("Agenda", Icons.Default.Home)
     object Courses : BottomNavTab("Matérias", Icons.Default.School)
+    object Schedule : BottomNavTab("Grade", Icons.Default.Schedule)
     object Events : BottomNavTab("Eventos", Icons.Default.Event)
     object Analytics : BottomNavTab("Análises", Icons.Default.Analytics)
 }
@@ -97,6 +101,7 @@ class MainActivity : ComponentActivity() {
                 val tabs = listOf(
                     BottomNavTab.Calendar,
                     BottomNavTab.Courses,
+                    BottomNavTab.Schedule,
                     BottomNavTab.Events,
                     BottomNavTab.Analytics
                 )
@@ -124,10 +129,11 @@ class MainActivity : ComponentActivity() {
                     ) {
                         when (currentTab) {
                             is BottomNavTab.Calendar -> CalendarScreen(
-                                onNavigateToEvents = { currentTab = BottomNavTab.Events },
-                                onNavigateToSubjects = { currentTab = BottomNavTab.Courses }
+                                onNavigateToSchedule = { currentTab = BottomNavTab.Schedule },
+                                onNavigateToEvents = { currentTab = BottomNavTab.Events }
                             )
                             is BottomNavTab.Courses -> CoursesSubjectsScreen()
+                            is BottomNavTab.Schedule -> ScheduleScreen()
                             is BottomNavTab.Events -> EventsScreen()
                             is BottomNavTab.Analytics -> AnalyticsScreen()
                         }
