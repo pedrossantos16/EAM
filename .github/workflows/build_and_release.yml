@@ -4,6 +4,9 @@ on:
   push:
     branches: [ "main", "master" ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -37,12 +40,11 @@ jobs:
             
             sed -i "s/VERSION_CODE=$VERSION_CODE/VERSION_CODE=$NEW_VERSION_CODE/" version.properties
             
-            # Update version.json as well
             echo "{
               \"versionCode\": $NEW_VERSION_CODE,
               \"versionName\": \"$VERSION_NAME\",
               \"apkUrl\": \"https://github.com/${{ github.repository }}/releases/latest/download/app-release.apk\",
-              \"releaseNotes\": \"Atualização automática via commit em ${{ github.sha }}.\"
+              \"releaseNotes\": \"Atualização automática gerada via commit.\"
             }" > version.json
 
             git add version.properties version.json
