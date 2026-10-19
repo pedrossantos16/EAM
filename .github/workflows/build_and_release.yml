@@ -36,15 +36,14 @@ jobs:
             VERSION_CODE=$(grep 'VERSION_CODE' version.properties | cut -d '=' -f 2)
             NEW_VERSION_CODE=$((VERSION_CODE + 1))
             
-            VERSION_NAME=$(grep 'VERSION_NAME' version.properties | cut -d '=' -f 2)
-            
             sed -i "s/VERSION_CODE=$VERSION_CODE/VERSION_CODE=$NEW_VERSION_CODE/" version.properties
             
+            # Atualiza o version.json apontando direto para a página de Releases do GitHub (sem erro 404)
             echo "{
               \"versionCode\": $NEW_VERSION_CODE,
-              \"versionName\": \"$VERSION_NAME\",
-              \"apkUrl\": \"https://github.com/${{ github.repository }}/releases/latest/download/app-release.apk\",
-              \"releaseNotes\": \"Atualização automática gerada via commit.\"
+              \"versionName\": \"1.0.$NEW_VERSION_CODE\",
+              \"apkUrl\": \"https://github.com/${{ github.repository }}/releases/latest\",
+              \"releaseNotes\": \"Nova versão automática #$NEW_VERSION_CODE gerada via commit.\"
             }" > version.json
 
             git add version.properties version.json
@@ -59,10 +58,10 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/') == false
         with:
-          files: app/build/outputs/apk/release/app-release.apk
+          files: app/build/outputs/apk/release/*.apk
           tag_name: v1.0.${{ github.run_number }}
           name: "EAM v1.0.${{ github.run_number }}"
-          body: "Nova atualização automática gerada via GitHub Actions."
+          body: "Nova atualização automática gerada via GitHub Actions. Baixe o APK abaixo."
           draft: false
           prerelease: false
         env:
