@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -71,28 +72,48 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (updateInfo != null) {
+                    var isDownloading by remember { mutableStateOf(false) }
+                    var downloadProgress by remember { mutableStateOf(0f) }
+
                     AlertDialog(
-                        onDismissRequest = { },
-                        title = { Text("Nova Atualização Disponível! 🚀") },
+                        onDismissRequest = { if (!isDownloading) updateInfo = null },
+                        title = { Text(if (isDownloading) "Baixando Atualização..." else "Nova Atualização Disponível! 🚀") },
                         text = {
                             Column {
-                                Text("Versão ${updateInfo?.versionName} está disponível no GitHub.")
-                                Spacer(modifier = Modifier.padding(top = 8.dp))
-                                Text("Novidades: ${updateInfo?.releaseNotes}", style = MaterialTheme.typography.bodySmall)
+                                if (isDownloading) {
+                                    Spacer(modifier = Modifier.padding(top = 8.dp))
+                                    LinearProgressIndicator(progress = { downloadProgress }, modifier = Modifier.fillMaxWidth())
+                                    Spacer(modifier = Modifier.padding(top = 8.dp))
+                                    Text("Baixando APK: ${(downloadProgress * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+                                } else {
+                                    Text("Versão ${updateInfo?.versionName} está disponível no GitHub.")
+                                    Spacer(modifier = Modifier.padding(top = 8.dp))
+                                    Text("Novidades: ${updateInfo?.releaseNotes}", style = MaterialTheme.typography.bodySmall)
+                                }
                             }
                         },
                         confirmButton = {
-                            Button(onClick = {
-                                updateInfo?.let {
-                                    UpdateManager.openDownloadUrl(context, it.apkUrl)
+                            if (!isDownloading) {
+                                Button(onClick = {
+                                    isDownloading = true
+                                    coroutineScope.launch {
+                                        updateInfo?.let {
+                                            UpdateManager.downloadAndInstall(context, it.apkUrl) { progress ->
+                                                downloadProgress = progress
+                                            }
+                                        }
+                                        isDownloading = false
+                                    }
+                                }) {
+                                    Text("Atualizar Agora")
                                 }
-                            }) {
-                                Text("Atualizar Agora")
                             }
                         },
                         dismissButton = {
-                            TextButton(onClick = { updateInfo = null }) {
-                                Text("Depois")
+                            if (!isDownloading) {
+                                TextButton(onClick = { updateInfo = null }) {
+                                    Text("Depois")
+                                }
                             }
                         }
                     )
