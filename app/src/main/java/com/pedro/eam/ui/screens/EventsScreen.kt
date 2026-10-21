@@ -58,15 +58,19 @@ fun EventsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
             }
         }
     ) { padding ->
+        val combinedBottom = padding.calculateBottomPadding() + contentPadding.calculateBottomPadding()
+
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(contentPadding)
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = padding.calculateTopPadding(),
+                bottom = combinedBottom + 24.dp,
+                start = 16.dp,
+                end = 16.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Spacer(modifier = Modifier.height(padding.calculateTopPadding()))
                 Text("Provas, Trabalhos e Compromissos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text("Clique em qualquer evento para visualizar sua descrição detalhada.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -148,10 +152,6 @@ fun EventsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                         }
                     }
                 }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
             }
         }
     }

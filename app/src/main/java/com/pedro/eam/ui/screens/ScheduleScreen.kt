@@ -57,15 +57,19 @@ fun ScheduleScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
             }
         }
     ) { padding ->
+        val combinedBottom = padding.calculateBottomPadding() + contentPadding.calculateBottomPadding()
+
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(contentPadding)
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = padding.calculateTopPadding(),
+                bottom = combinedBottom + 24.dp,
+                start = 16.dp,
+                end = 16.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Spacer(modifier = Modifier.height(padding.calculateTopPadding()))
                 Text("Organização de Aulas por Dia da Semana", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text("Associe cada matéria aos seus horários e dias específicos.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -121,10 +125,6 @@ fun ScheduleScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                         }
                     }
                 }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
             }
         }
     }

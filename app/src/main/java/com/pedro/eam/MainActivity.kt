@@ -12,8 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,7 +34,7 @@ import kotlinx.coroutines.launch
 sealed class BottomNavTab(val title: String, val icon: ImageVector) {
     object Calendar : BottomNavTab("Agenda", Icons.Default.Home)
     object Courses : BottomNavTab("Matérias", Icons.Default.School)
-    object Schedule : BottomNavTab("Grade", Icons.Default.Schedule)
+    object Schedule : BottomNavTab("Grade", Icons.Default.GridView)
     object Events : BottomNavTab("Eventos", Icons.Default.Event)
     object Analytics : BottomNavTab("Análises", Icons.Default.Analytics)
 }

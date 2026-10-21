@@ -62,15 +62,19 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
             }
         }
     ) { padding ->
+        val combinedBottom = padding.calculateBottomPadding() + contentPadding.calculateBottomPadding()
+
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(contentPadding)
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = padding.calculateTopPadding(),
+                bottom = combinedBottom + 24.dp,
+                start = 16.dp,
+                end = 16.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Spacer(modifier = Modifier.height(padding.calculateTopPadding()))
                 Text("Seus Cursos e Matérias Vinculadas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text("Gerencie as matérias. As faltas são registradas no calendário da Visão Geral.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -159,10 +163,6 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                         }
                     }
                 }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
             }
         }
     }
