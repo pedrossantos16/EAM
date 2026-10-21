@@ -38,10 +38,11 @@ jobs:
             
             sed -i "s/VERSION_CODE=$VERSION_CODE/VERSION_CODE=$NEW_VERSION_CODE/" version.properties
             
+            # URL de download direto do APK binário na release mais recente
             echo "{
               \"versionCode\": $NEW_VERSION_CODE,
               \"versionName\": \"1.0.$NEW_VERSION_CODE\",
-              \"apkUrl\": \"https://github.com/${{ github.repository }}/releases/latest\",
+              \"apkUrl\": \"https://github.com/${{ github.repository }}/releases/latest/download/app-debug.apk\",
               \"releaseNotes\": \"Nova versão automática #$NEW_VERSION_CODE gerada via commit.\"
             }" > version.json
 
@@ -57,7 +58,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/') == false
         with:
-          files: app/build/outputs/apk/debug/*.apk
+          files: app/build/outputs/apk/debug/app-debug.apk
           tag_name: v1.0.${{ github.run_number }}
           name: "EAM v1.0.${{ github.run_number }}"
           body: "Nova atualização automática gerada via GitHub Actions. Baixe o APK abaixo."

@@ -82,6 +82,12 @@ object UpdateManager {
                     }
                 }
 
+                // Validar se o arquivo baixado é um APK válido (maior que 500KB)
+                if (outputFile.length() < 500 * 1024) {
+                    Log.e("UpdateManager", "O arquivo baixado é inválido (provavelmente HTML de erro).")
+                    return@withContext false
+                }
+
                 withContext(Dispatchers.Main) {
                     installApk(context, outputFile)
                 }
@@ -97,11 +103,7 @@ object UpdateManager {
         try {
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-                    } else {
-                        Uri.fromFile(file)
-                    },
+                    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file),
                     "application/vnd.android.package-archive"
                 )
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
