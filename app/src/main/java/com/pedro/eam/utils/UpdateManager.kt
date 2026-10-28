@@ -20,15 +20,15 @@ data class UpdateInfo(
 )
 
 object UpdateManager {
-    private const val GITHUB_API_URL = "https://api.github.com/repos/pedrossantos16/EAM/releases/latest"
+    // Usamos o version.json gerado atomicamente pelo GitHub Actions no mesmo commit do APK
+    private const val VERSION_JSON_URL = "https://raw.githubusercontent.com/pedrossantos16/EAM/master/version.json"
 
     suspend fun checkForUpdate(currentVersionCode: Int): UpdateInfo? {
         return withContext(Dispatchers.IO) {
             try {
-                val url = URL(GITHUB_API_URL)
+                val url = URL(VERSION_JSON_URL)
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
-                connection.setRequestProperty("Accept", "application/vnd.github+json")
                 connection.connectTimeout = 5000
                 connection.readTimeout = 5000
 
@@ -36,51 +36,21 @@ object UpdateManager {
                     val jsonStr = connection.inputStream.bufferedReader().use { it.readText() }
                     val json = JSONObject(jsonStr)
 
-                    val tagName = json.getString("tag_name") // ex: "v1.0.13"
-                    val releaseNotes = json.optString("body", "Nova atualização disponível!")
+                    val remoteVersionCode = json.getInt("versionCode")
+                    val versionName = json.getString("versionName")
+                    val apkUrl = json.getString("apkUrl")
+                    val releaseNotes = json.optString("releaseNotes", "Nova atualização disponível!")
 
-                    val remoteVersionCode = extractVersionCode(tagName)
-
-                    var apkUrl = ""
-                    val assets = json.optJSONArray("assets")
-                    if (assets != null) {
-                        for (i in 0 until assets.length()) {
-                            val asset = assets.getJSONObject(i)
-                            val name = asset.getString("name")
-                            if (name.endsWith(".apk")) {
-                                apkUrl = asset.getString("browser_download_url")
-                                break
-                            }
-                        }
-                    }
-
-                    if (apkUrl.isBlank()) {
-                        apkUrl = "https://github.com/pedrossantos16/EAM/releases/latest/download/app-debug.apk"
-                    }
-
-                    Log.d("UpdateManager", "GitHub Tag: $tagName, RemoteCode: $remoteVersionCode, Current: $currentVersionCode")
+                    Log.d("UpdateManager", "Remote VersionCode: $remoteVersionCode, Current VersionCode: $currentVersionCode")
 
                     if (remoteVersionCode > currentVersionCode && apkUrl.isNotBlank()) {
-                        return@withContext UpdateInfo(remoteVersionCode, tagName, apkUrl, releaseNotes)
+                        return@withContext UpdateInfo(remoteVersionCode, versionName, apkUrl, releaseNotes)
                     }
                 }
             } catch (e: Exception) {
-                Log.e("UpdateManager", "Erro ao consultar GitHub API: ${e.message}")
+                Log.e("UpdateManager", "Erro ao verificar atualização: ${e.message}")
             }
             null
-        }
-    }
-
-    private fun extractVersionCode(tagName: String): Int {
-        return try {
-            val parts = tagName.split(".")
-            if (parts.isNotEmpty()) {
-                parts.last().filter { it.isDigit() }.toInt()
-            } else {
-                tagName.filter { it.isDigit() }.toInt()
-            }
-        } catch (e: Exception) {
-            1
         }
     }
 

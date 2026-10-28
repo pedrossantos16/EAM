@@ -35,8 +35,12 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
     val courses = EamRepository.courses
     val subjects = EamRepository.subjects
 
-    Scaffold(
-        topBar = {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(contentPadding)
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
                 title = { Text("Cursos & Matérias", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -44,125 +48,126 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
-        },
-        floatingActionButton = {
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                FloatingActionButton(
-                    onClick = { showAddSubjectDialog = true },
-                    containerColor = MaterialTheme.colorScheme.secondary
-                ) {
-                    Icon(Icons.Default.Class, contentDescription = "Nova Matéria")
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    Text("Seus Cursos e Matérias Vinculadas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Gerencie as matérias. As faltas são registradas no calendário da Visão Geral.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                FloatingActionButton(
-                    onClick = { showAddCourseDialog = true },
-                    containerColor = MaterialTheme.colorScheme.primary
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Novo Curso")
+
+                if (courses.isEmpty()) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Text("Nenhum curso cadastrado. Clique em '+' para adicionar.")
+                        }
+                    }
+                }
+
+                items(courses) { course ->
+                    val courseSubjects = subjects.filter { it.courseId == course.id }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.School, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(course.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                        if (course.description.isNotBlank()) {
+                                            Text(course.description, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                }
+                                IconButton(onClick = { EamRepository.removeCourse(course.id) }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Excluir Curso", tint = MaterialTheme.colorScheme.error)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text("Matérias (${courseSubjects.size}):", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            if (courseSubjects.isEmpty()) {
+                                Text("Nenhuma matéria neste curso.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            } else {
+                                courseSubjects.forEach { sub ->
+                                    val absCount = EamRepository.getAbsenceCount(sub.id)
+                                    val ratio = if (sub.maxAbsences > 0) absCount.toFloat() / sub.maxAbsences.toFloat() else 0f
+                                    val isOverOrNear = ratio >= 0.7f
+
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = if (isOverOrNear) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+                                            else MaterialTheme.colorScheme.surface
+                                        ),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(12.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(sub.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                                Text("Prof: ${sub.professor.ifBlank { "Não informado" }} • Sala: ${sub.room.ifBlank { "N/A" }}", style = MaterialTheme.typography.bodySmall)
+                                                Text("Faltas registradas: $absCount / Máx: ${sub.maxAbsences}", style = MaterialTheme.typography.bodySmall, color = if (isOverOrNear) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+
+                                            IconButton(onClick = { EamRepository.removeSubject(sub.id) }) {
+                                                Icon(Icons.Default.Delete, contentDescription = "Excluir Matéria", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
-    ) { padding ->
-        val combinedBottom = padding.calculateBottomPadding() + contentPadding.calculateBottomPadding()
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                top = padding.calculateTopPadding(),
-                bottom = combinedBottom + 24.dp,
-                start = 16.dp,
-                end = 16.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        // Floating Action Buttons pinned above bottom bar
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            item {
-                Text("Seus Cursos e Matérias Vinculadas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("Gerencie as matérias. As faltas são registradas no calendário da Visão Geral.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FloatingActionButton(
+                onClick = { showAddSubjectDialog = true },
+                containerColor = MaterialTheme.colorScheme.secondary
+            ) {
+                Icon(Icons.Default.Class, contentDescription = "Nova Matéria")
             }
-
-            if (courses.isEmpty()) {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text("Nenhum curso cadastrado. Clique em '+' para adicionar.")
-                    }
-                }
-            }
-
-            items(courses) { course ->
-                val courseSubjects = subjects.filter { it.courseId == course.id }
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.School, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text(course.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                    if (course.description.isNotBlank()) {
-                                        Text(course.description, style = MaterialTheme.typography.bodySmall)
-                                    }
-                                }
-                            }
-                            IconButton(onClick = { EamRepository.removeCourse(course.id) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Excluir Curso", tint = MaterialTheme.colorScheme.error)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text("Matérias (${courseSubjects.size}):", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        if (courseSubjects.isEmpty()) {
-                            Text("Nenhuma matéria neste curso.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        } else {
-                            courseSubjects.forEach { sub ->
-                                val absCount = EamRepository.getAbsenceCount(sub.id)
-                                val ratio = if (sub.maxAbsences > 0) absCount.toFloat() / sub.maxAbsences.toFloat() else 0f
-                                val isOverOrNear = ratio >= 0.7f
-
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = if (isOverOrNear) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
-                                        else MaterialTheme.colorScheme.surface
-                                    ),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(12.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(sub.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                            Text("Prof: ${sub.professor.ifBlank { "Não informado" }} • Sala: ${sub.room.ifBlank { "N/A" }}", style = MaterialTheme.typography.bodySmall)
-                                            Text("Faltas registradas: $absCount / Máx: ${sub.maxAbsences}", style = MaterialTheme.typography.bodySmall, color = if (isOverOrNear) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
-
-                                        IconButton(onClick = { EamRepository.removeSubject(sub.id) }) {
-                                            Icon(Icons.Default.Delete, contentDescription = "Excluir Matéria", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+            FloatingActionButton(
+                onClick = { showAddCourseDialog = true },
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Novo Curso")
             }
         }
     }

@@ -54,8 +54,12 @@ fun CalendarScreen(
 
     val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
-    Scaffold(
-        topBar = {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(contentPadding)
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
                 title = { Text("Visão Geral & Calendário", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -63,185 +67,94 @@ fun CalendarScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(contentPadding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            // Section 1: Absence Management Calendar
-            item {
-                Spacer(modifier = Modifier.height(padding.calculateTopPadding()))
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text("Registro de Faltas por Dia", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("Clique em um dia para marcar/desmarcar faltas nas aulas.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            IconButton(onClick = onNavigateToSchedule) {
-                                Icon(Icons.Default.Schedule, contentDescription = "Ver Grade", tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
 
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(currentMonthName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                            listOf("Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb").forEach { day ->
-                                Text(day, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(36.dp), textAlign = TextAlign.Center)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        val totalCells = daysInMonth + firstDayOfWeek
-                        val rows = (totalCells + 6) / 7
-
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            for (row in 0 until rows) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                                    for (col in 0 until 7) {
-                                        val dayIndex = row * 7 + col
-                                        val dayNumber = dayIndex - firstDayOfWeek + 1
-
-                                        if (dayNumber in 1..daysInMonth) {
-                                            val calDay = Calendar.getInstance().apply {
-                                                set(currentYear, currentMonth, dayNumber)
-                                            }
-                                            val dateStr = dateFormat.format(calDay.time)
-                                            val dow = calDay.get(Calendar.DAY_OF_WEEK)
-                                            val mappedDow = if (dow == Calendar.SUNDAY) 7 else dow - 1
-                                            val hasClasses = scheduleItems.any { it.dayOfWeek == mappedDow }
-                                            val hasAbsence = subjects.any { EamRepository.isAbsentOnDate(it.id, dateStr) }
-
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(38.dp)
-                                                    .clip(CircleShape)
-                                                    .background(
-                                                        when {
-                                                            hasAbsence -> MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
-                                                            hasClasses -> MaterialTheme.colorScheme.primaryContainer
-                                                            else -> Color.Transparent
-                                                        }
-                                                    )
-                                                    .clickable {
-                                                        selectedDateForAbsence = dateStr
-                                                    },
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(
-                                                    text = dayNumber.toString(),
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    fontWeight = if (hasClasses) FontWeight.Bold else FontWeight.Normal,
-                                                    color = if (hasAbsence) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                                                )
-                                            }
-                                        } else {
-                                            Spacer(modifier = Modifier.size(38.dp))
-                                        }
-                                    }
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Section 1: Absence Management Calendar
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text("Registro de Faltas por Dia", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    Text("Clique em um dia para marcar/desmarcar faltas nas aulas.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                IconButton(onClick = onNavigateToSchedule) {
+                                    Icon(Icons.Default.Schedule, contentDescription = "Ver Grade", tint = MaterialTheme.colorScheme.primary)
                                 }
                             }
-                        }
-                    }
-                }
-            }
 
-            // Section 2: Events Calendar & Interaction
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text("Calendário de Eventos & Provas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("Dias com eventos destacados. Clique no dia para ver detalhes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(currentMonthName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                                listOf("Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb").forEach { day ->
+                                    Text(day, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(36.dp), textAlign = TextAlign.Center)
+                                }
                             }
-                            IconButton(onClick = onNavigateToEvents) {
-                                Icon(Icons.Default.Add, contentDescription = "Adicionar Evento", tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
 
-                        val totalCells = daysInMonth + firstDayOfWeek
-                        val rows = (totalCells + 6) / 7
+                            val totalCells = daysInMonth + firstDayOfWeek
+                            val rows = (totalCells + 6) / 7
 
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            for (row in 0 until rows) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                                    for (col in 0 until 7) {
-                                        val dayIndex = row * 7 + col
-                                        val dayNumber = dayIndex - firstDayOfWeek + 1
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                for (row in 0 until rows) {
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                                        for (col in 0 until 7) {
+                                            val dayIndex = row * 7 + col
+                                            val dayNumber = dayIndex - firstDayOfWeek + 1
 
-                                        if (dayNumber in 1..daysInMonth) {
-                                            val calDay = Calendar.getInstance().apply {
-                                                set(currentYear, currentMonth, dayNumber)
-                                            }
-                                            val dateStr = dateFormat.format(calDay.time)
-                                            val dayEvents = events.filter { it.date == dateStr }
-                                            val hasEvent = dayEvents.isNotEmpty()
-                                            val allCompleted = hasEvent && dayEvents.all { it.isCompleted }
+                                            if (dayNumber in 1..daysInMonth) {
+                                                val calDay = Calendar.getInstance().apply {
+                                                    set(currentYear, currentMonth, dayNumber)
+                                                }
+                                                val dateStr = dateFormat.format(calDay.time)
+                                                val dow = calDay.get(Calendar.DAY_OF_WEEK)
+                                                val mappedDow = if (dow == Calendar.SUNDAY) 7 else dow - 1
+                                                val hasClasses = scheduleItems.any { it.dayOfWeek == mappedDow }
+                                                val hasAbsence = subjects.any { EamRepository.isAbsentOnDate(it.id, dateStr) }
 
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(38.dp)
-                                                    .clip(CircleShape)
-                                                    .background(
-                                                        when {
-                                                            allCompleted -> Color(0xFF81C784).copy(alpha = 0.5f)
-                                                            hasEvent -> MaterialTheme.colorScheme.tertiaryContainer
-                                                            else -> Color.Transparent
-                                                        }
-                                                    )
-                                                    .clickable(enabled = hasEvent) {
-                                                        if (hasEvent) {
-                                                            selectedEventForDialog = dayEvents.first()
-                                                            isEditingEvent = false
-                                                        }
-                                                    },
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(38.dp)
+                                                        .clip(CircleShape)
+                                                        .background(
+                                                            when {
+                                                                hasAbsence -> MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
+                                                                hasClasses -> MaterialTheme.colorScheme.primaryContainer
+                                                                else -> Color.Transparent
+                                                            }
+                                                        )
+                                                        .clickable {
+                                                            selectedDateForAbsence = dateStr
+                                                        },
+                                                    contentAlignment = Alignment.Center
+                                                ) {
                                                     Text(
                                                         text = dayNumber.toString(),
                                                         style = MaterialTheme.typography.bodyMedium,
-                                                        fontWeight = if (hasEvent) FontWeight.Bold else FontWeight.Normal,
-                                                        color = if (hasEvent) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurface
+                                                        fontWeight = if (hasClasses) FontWeight.Bold else FontWeight.Normal,
+                                                        color = if (hasAbsence) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                                                     )
-                                                    if (hasEvent) {
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(6.dp)
-                                                                .clip(CircleShape)
-                                                                .background(if (allCompleted) Color.Green else MaterialTheme.colorScheme.tertiary)
-                                                        )
-                                                    }
                                                 }
+                                            } else {
+                                                Spacer(modifier = Modifier.size(38.dp))
                                             }
-                                        } else {
-                                            Spacer(modifier = Modifier.size(38.dp))
                                         }
                                     }
                                 }
@@ -249,7 +162,96 @@ fun CalendarScreen(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
+
+                // Section 2: Events Calendar & Interaction
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text("Calendário de Eventos & Provas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    Text("Dias com eventos destacados. Clique no dia para ver detalhes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                IconButton(onClick = onNavigateToEvents) {
+                                    Icon(Icons.Default.Add, contentDescription = "Adicionar Evento", tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            val totalCells = daysInMonth + firstDayOfWeek
+                            val rows = (totalCells + 6) / 7
+
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                for (row in 0 until rows) {
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                                        for (col in 0 until 7) {
+                                            val dayIndex = row * 7 + col
+                                            val dayNumber = dayIndex - firstDayOfWeek + 1
+
+                                            if (dayNumber in 1..daysInMonth) {
+                                                val calDay = Calendar.getInstance().apply {
+                                                    set(currentYear, currentMonth, dayNumber)
+                                                }
+                                                val dateStr = dateFormat.format(calDay.time)
+                                                val dayEvents = events.filter { it.date == dateStr }
+                                                val hasEvent = dayEvents.isNotEmpty()
+                                                val allCompleted = hasEvent && dayEvents.all { it.isCompleted }
+
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(38.dp)
+                                                        .clip(CircleShape)
+                                                        .background(
+                                                            when {
+                                                                allCompleted -> Color(0xFF81C784).copy(alpha = 0.5f)
+                                                                hasEvent -> MaterialTheme.colorScheme.tertiaryContainer
+                                                                else -> Color.Transparent
+                                                            }
+                                                        )
+                                                        .clickable(enabled = hasEvent) {
+                                                            if (hasEvent) {
+                                                                selectedEventForDialog = dayEvents.first()
+                                                                isEditingEvent = false
+                                                            }
+                                                        },
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                        Text(
+                                                            text = dayNumber.toString(),
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            fontWeight = if (hasEvent) FontWeight.Bold else FontWeight.Normal,
+                                                            color = if (hasEvent) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurface
+                                                        )
+                                                        if (hasEvent) {
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(6.dp)
+                                                                    .clip(CircleShape)
+                                                                    .background(if (allCompleted) Color.Green else MaterialTheme.colorScheme.tertiary)
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            } else {
+                                                Spacer(modifier = Modifier.size(38.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

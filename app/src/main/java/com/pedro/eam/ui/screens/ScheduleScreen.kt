@@ -38,8 +38,12 @@ fun ScheduleScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
     val subjects = EamRepository.subjects
     val scheduleItems = EamRepository.scheduleItems
 
-    Scaffold(
-        topBar = {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(contentPadding)
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
                 title = { Text("Grade Curricular & Horários", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -47,77 +51,64 @@ fun ScheduleScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Adicionar Horário")
-            }
-        }
-    ) { padding ->
-        val combinedBottom = padding.calculateBottomPadding() + contentPadding.calculateBottomPadding()
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                top = padding.calculateTopPadding(),
-                bottom = combinedBottom + 24.dp,
-                start = 16.dp,
-                end = 16.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                Text("Organização de Aulas por Dia da Semana", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("Associe cada matéria aos seus horários e dias específicos.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            if (scheduleItems.isEmpty()) {
                 item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text("Nenhum horário cadastrado na grade.")
+                    Text("Organização de Aulas por Dia da Semana", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Associe cada matéria aos seus horários e dias específicos.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                if (scheduleItems.isEmpty()) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Text("Nenhum horário cadastrado na grade.")
+                        }
                     }
                 }
-            }
 
-            val grouped = scheduleItems.groupBy { it.dayOfWeek }
+                val grouped = scheduleItems.groupBy { it.dayOfWeek }
 
-            daysOfWeekMap.forEach { (dayNum, dayName) ->
-                val dayItems = grouped[dayNum] ?: emptyList()
-                if (dayItems.isNotEmpty()) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(dayName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                }
-                                Spacer(modifier = Modifier.height(8.dp))
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                Spacer(modifier = Modifier.height(8.dp))
+                daysOfWeekMap.forEach { (dayNum, dayName) ->
+                    val dayItems = grouped[dayNum] ?: emptyList()
+                    if (dayItems.isNotEmpty()) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(dayName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                    Spacer(modifier = Modifier.height(8.dp))
 
-                                dayItems.sortedBy { it.startTime }.forEach { item ->
-                                    val subject = subjects.find { it.id == item.subjectId }
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 6.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(subject?.name ?: "Matéria desconhecida", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
-                                            Text("⏰ ${item.startTime} - ${item.endTime} • Sala: ${item.room.ifBlank { subject?.room ?: "N/A" }}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
-                                        IconButton(onClick = { EamRepository.removeScheduleItem(item.id) }) {
-                                            Icon(Icons.Default.Delete, contentDescription = "Remover Horário", tint = MaterialTheme.colorScheme.error)
+                                    dayItems.sortedBy { it.startTime }.forEach { item ->
+                                        val subject = subjects.find { it.id == item.subjectId }
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 6.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(subject?.name ?: "Matéria desconhecida", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                                                Text("⏰ ${item.startTime} - ${item.endTime} • Sala: ${item.room.ifBlank { subject?.room ?: "N/A" }}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                            IconButton(onClick = { EamRepository.removeScheduleItem(item.id) }) {
+                                                Icon(Icons.Default.Delete, contentDescription = "Remover Horário", tint = MaterialTheme.colorScheme.error)
+                                            }
                                         }
                                     }
                                 }
@@ -126,6 +117,17 @@ fun ScheduleScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                     }
                 }
             }
+        }
+
+        // Floating Action Button pinned above bottom bar
+        FloatingActionButton(
+            onClick = { showAddDialog = true },
+            containerColor = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Adicionar Horário")
         }
     }
 

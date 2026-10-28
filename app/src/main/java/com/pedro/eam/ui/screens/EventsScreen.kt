@@ -39,8 +39,12 @@ fun EventsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
     val subjects = EamRepository.subjects
     val events = EamRepository.events
 
-    Scaffold(
-        topBar = {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(contentPadding)
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
                 title = { Text("Gerenciamento de Eventos", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -48,111 +52,109 @@ fun EventsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddEventDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Adicionar Evento")
+                item {
+                    Text("Provas, Trabalhos e Compromissos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Clique em qualquer evento para visualizar sua descrição detalhada.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                if (events.isEmpty()) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Text("Nenhum evento cadastrado.")
+                        }
+                    }
+                }
+
+                items(events) { event ->
+                    val subject = subjects.find { it.id == event.subjectId }
+                    val isExpanded = expandedEventId == event.id
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { expandedEventId = if (isExpanded) null else event.id },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (event.isCompleted) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            else MaterialTheme.colorScheme.surface
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    IconButton(onClick = { EamRepository.toggleEventComplete(event.id) }) {
+                                        Icon(
+                                            imageVector = if (event.isCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                            contentDescription = "Concluir",
+                                            tint = if (event.isCompleted) Color.Green else MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = event.title,
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = if (event.isCompleted) Color.Gray else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "${subject?.name ?: "Geral"} • Tipo: ${event.type.label} • Data: ${event.date}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = { EamRepository.removeEvent(event.id) }) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = MaterialTheme.colorScheme.error)
+                                    }
+                                    Icon(
+                                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                        contentDescription = "Expandir",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            AnimatedVisibility(visible = isExpanded) {
+                                Column(modifier = Modifier.padding(top = 12.dp)) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("Descrição Definida pelo Usuário:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = if (event.description.isBlank()) "Nenhuma descrição informada para este evento." else event.description,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
-    ) { padding ->
-        val combinedBottom = padding.calculateBottomPadding() + contentPadding.calculateBottomPadding()
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                top = padding.calculateTopPadding(),
-                bottom = combinedBottom + 24.dp,
-                start = 16.dp,
-                end = 16.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        // Floating Action Button pinned above bottom bar
+        FloatingActionButton(
+            onClick = { showAddEventDialog = true },
+            containerColor = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
         ) {
-            item {
-                Text("Provas, Trabalhos e Compromissos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("Clique em qualquer evento para visualizar sua descrição detalhada.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-
-            if (events.isEmpty()) {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text("Nenhum evento cadastrado.")
-                    }
-                }
-            }
-
-            items(events) { event ->
-                val subject = subjects.find { it.id == event.subjectId }
-                val isExpanded = expandedEventId == event.id
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { expandedEventId = if (isExpanded) null else event.id },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (event.isCompleted) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        else MaterialTheme.colorScheme.surface
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                IconButton(onClick = { EamRepository.toggleEventComplete(event.id) }) {
-                                    Icon(
-                                        imageVector = if (event.isCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                                        contentDescription = "Concluir",
-                                        tint = if (event.isCompleted) Color.Green else MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                                Column {
-                                    Text(
-                                        text = event.title,
-                                        fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = if (event.isCompleted) Color.Gray else MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = "${subject?.name ?: "Geral"} • Tipo: ${event.type.label} • Data: ${event.date}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { EamRepository.removeEvent(event.id) }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = MaterialTheme.colorScheme.error)
-                                }
-                                Icon(
-                                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                    contentDescription = "Expandir",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        AnimatedVisibility(visible = isExpanded) {
-                            Column(modifier = Modifier.padding(top = 12.dp)) {
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("Descrição Definida pelo Usuário:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = if (event.description.isBlank()) "Nenhuma descrição informada para este evento." else event.description,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            Icon(Icons.Default.Add, contentDescription = "Adicionar Evento")
         }
     }
 
