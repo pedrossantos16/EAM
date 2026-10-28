@@ -20,7 +20,6 @@ data class UpdateInfo(
 )
 
 object UpdateManager {
-    // Consulta direta à API oficial do GitHub para pegar a última release e o link do APK exato
     private const val GITHUB_API_URL = "https://api.github.com/repos/pedrossantos16/EAM/releases/latest"
 
     suspend fun checkForUpdate(currentVersionCode: Int): UpdateInfo? {
@@ -37,13 +36,11 @@ object UpdateManager {
                     val jsonStr = connection.inputStream.bufferedReader().use { it.readText() }
                     val json = JSONObject(jsonStr)
 
-                    val tagName = json.getString("tag_name") // ex: "v1.0.12"
+                    val tagName = json.getString("tag_name") // ex: "v1.0.13"
                     val releaseNotes = json.optString("body", "Nova atualização disponível!")
 
-                    // Extrair código da versão a partir da tag
                     val remoteVersionCode = extractVersionCode(tagName)
 
-                    // Procurar o link direto do APK nos assets da release
                     var apkUrl = ""
                     val assets = json.optJSONArray("assets")
                     if (assets != null) {
@@ -57,7 +54,6 @@ object UpdateManager {
                         }
                     }
 
-                    // Fallback se não encontrar o asset direto
                     if (apkUrl.isBlank()) {
                         apkUrl = "https://github.com/pedrossantos16/EAM/releases/latest/download/app-debug.apk"
                     }
@@ -77,8 +73,12 @@ object UpdateManager {
 
     private fun extractVersionCode(tagName: String): Int {
         return try {
-            val digits = tagName.filter { it.isDigit() }
-            if (digits.isNotEmpty()) digits.toInt() else 1
+            val parts = tagName.split(".")
+            if (parts.isNotEmpty()) {
+                parts.last().filter { it.isDigit() }.toInt()
+            } else {
+                tagName.filter { it.isDigit() }.toInt()
+            }
         } catch (e: Exception) {
             1
         }
