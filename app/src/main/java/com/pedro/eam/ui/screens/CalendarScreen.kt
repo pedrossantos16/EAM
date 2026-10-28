@@ -61,7 +61,7 @@ fun CalendarScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
-                title = { Text("Visão Geral & Calendário", fontWeight = FontWeight.Bold) },
+                title = { Text("Agenda & Visão Geral", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -88,16 +88,13 @@ fun CalendarScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column {
-                                    Text("Registro de Faltas por Dia", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                    Text("Clique em um dia para marcar/desmarcar faltas nas aulas.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
+                                Text("Controle de Faltas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 IconButton(onClick = onNavigateToSchedule) {
                                     Icon(Icons.Default.Schedule, contentDescription = "Ver Grade", tint = MaterialTheme.colorScheme.primary)
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(currentMonthName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.height(8.dp))
 
@@ -176,10 +173,7 @@ fun CalendarScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column {
-                                    Text("Calendário de Eventos & Provas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                    Text("Dias com eventos destacados. Clique no dia para ver detalhes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
+                                Text("Calendário de Eventos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 IconButton(onClick = onNavigateToEvents) {
                                     Icon(Icons.Default.Add, contentDescription = "Adicionar Evento", tint = MaterialTheme.colorScheme.primary)
                                 }
@@ -273,10 +267,8 @@ fun CalendarScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (dayClasses.isEmpty()) {
-                        Text("Nenhuma aula cadastrada na grade para este dia da semana.", style = MaterialTheme.typography.bodyMedium)
+                        Text("Nenhuma aula cadastrada.", style = MaterialTheme.typography.bodyMedium)
                     } else {
-                        Text("Desmarque o item caso tenha faltado à aula:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(modifier = Modifier.height(4.dp))
                         dayClasses.forEach { sch ->
                             val sub = subjects.find { it.id == sch.subjectId }
                             val subName = sub?.name ?: "Matéria"
@@ -293,7 +285,7 @@ fun CalendarScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(subName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
-                                    Text("⏰ ${sch.startTime} - ${sch.endTime} • Sala: ${sch.room.ifBlank { sub?.room ?: "N/A" }}", style = MaterialTheme.typography.bodySmall)
+                                    Text("⏰ ${sch.startTime} - ${sch.endTime}", style = MaterialTheme.typography.bodySmall)
                                 }
                                 Checkbox(
                                     checked = isPresent,
@@ -309,7 +301,7 @@ fun CalendarScreen(
             },
             confirmButton = {
                 Button(onClick = { selectedDateForAbsence = null }) {
-                    Text("Concluir")
+                    Text("OK")
                 }
             }
         )
@@ -330,7 +322,7 @@ fun CalendarScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Matéria: ${sub?.name ?: "Geral"}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                    Text("Tipo: ${ev.type.label} • Data: ${ev.date}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Data: ${ev.date}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     
@@ -347,9 +339,8 @@ fun CalendarScreen(
                             label = { Text("Descrição") }
                         )
                     } else {
-                        Text("Descrição do Evento:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                         Text(
-                            text = if (ev.description.isBlank()) "Nenhuma descrição informada." else ev.description,
+                            text = if (ev.description.isBlank()) "Sem descrição." else ev.description,
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }

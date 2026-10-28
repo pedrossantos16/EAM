@@ -52,77 +52,74 @@ fun AnalyticsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
         )
     }
 
-    Scaffold(
-        topBar = {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(contentPadding)
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
-                title = { Text("Análises & Relatórios", fontWeight = FontWeight.Bold) },
+                title = { Text("Análises & Gráficos", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             )
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(contentPadding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            item {
-                Spacer(modifier = Modifier.height(padding.calculateTopPadding()))
-                Text("Visão Analítica Completa", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("Relação detalhada de faltas, limites e distribuição de eventos acadêmicos.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
 
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        BarChart(
-                            title = "1. Faltas vs. Limite Máximo por Matéria",
-                            subtitle = "Barras azuis/vermelhas = Faltas atuais (via calendário). Barras cinzas = Limite permitido.",
-                            items = absencesChartData
-                        )
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            BarChart(
+                                title = "Faltas por Matéria",
+                                subtitle = "",
+                                items = absencesChartData
+                            )
+                        }
                     }
                 }
-            }
 
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        BarChart(
-                            title = "2. Volume de Eventos por Matéria",
-                            subtitle = "Quantidade de provas, trabalhos e compromissos cadastrados.",
-                            items = eventsPerSubjectData
-                        )
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            BarChart(
+                                title = "Eventos por Matéria",
+                                subtitle = "",
+                                items = eventsPerSubjectData
+                            )
+                        }
                     }
                 }
-            }
 
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        BarChart(
-                            title = "3. Distribuição de Eventos por Categoria",
-                            subtitle = "Provas, Trabalhos, Apresentações e Leituras.",
-                            items = eventsByTypeData
-                        )
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            BarChart(
+                                title = "Eventos por Categoria",
+                                subtitle = "",
+                                items = eventsByTypeData
+                            )
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
             }
         }
     }

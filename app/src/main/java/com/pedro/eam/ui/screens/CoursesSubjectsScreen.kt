@@ -56,15 +56,10 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                item {
-                    Text("Seus Cursos e Matérias Vinculadas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Gerencie as matérias. As faltas são registradas no calendário da Visão Geral.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-
                 if (courses.isEmpty()) {
                     item {
                         Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Text("Nenhum curso cadastrado. Clique em '+' para adicionar.")
+                            Text("Nenhum curso cadastrado.")
                         }
                     }
                 }
@@ -106,7 +101,7 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                             Spacer(modifier = Modifier.height(6.dp))
 
                             if (courseSubjects.isEmpty()) {
-                                Text("Nenhuma matéria neste curso.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Nenhuma matéria.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             } else {
                                 courseSubjects.forEach { sub ->
                                     val absCount = EamRepository.getAbsenceCount(sub.id)
@@ -132,12 +127,11 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                                         ) {
                                             Column(modifier = Modifier.weight(1f)) {
                                                 Text(sub.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                Text("Prof: ${sub.professor.ifBlank { "Não informado" }} • Sala: ${sub.room.ifBlank { "N/A" }}", style = MaterialTheme.typography.bodySmall)
-                                                Text("Faltas registradas: $absCount / Máx: ${sub.maxAbsences}", style = MaterialTheme.typography.bodySmall, color = if (isOverOrNear) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Text("Faltas: $absCount / Máx: ${sub.maxAbsences}", style = MaterialTheme.typography.bodySmall, color = if (isOverOrNear) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
 
                                             IconButton(onClick = { EamRepository.removeSubject(sub.id) }) {
-                                                Icon(Icons.Default.Delete, contentDescription = "Excluir Matéria", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+                                                Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
                                             }
                                         }
                                     }
@@ -149,7 +143,6 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
             }
         }
 
-        // Floating Action Buttons pinned above bottom bar
         Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
@@ -175,7 +168,7 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
     if (showAddCourseDialog) {
         AlertDialog(
             onDismissRequest = { showAddCourseDialog = false },
-            title = { Text("Adicionar Novo Curso") },
+            title = { Text("Novo Curso") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
@@ -187,7 +180,7 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                     OutlinedTextField(
                         value = newCourseDesc,
                         onValueChange = { newCourseDesc = it },
-                        label = { Text("Descrição / Período") },
+                        label = { Text("Descrição") },
                         singleLine = true
                     )
                 }
@@ -215,7 +208,7 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
     if (showAddSubjectDialog) {
         AlertDialog(
             onDismissRequest = { showAddSubjectDialog = false },
-            title = { Text("Adicionar Nova Matéria") },
+            title = { Text("Nova Matéria") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (courses.isNotEmpty()) {
@@ -252,13 +245,13 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                     OutlinedTextField(
                         value = newSubjectRoom,
                         onValueChange = { newSubjectRoom = it },
-                        label = { Text("Sala / Laboratório") },
+                        label = { Text("Sala") },
                         singleLine = true
                     )
                     OutlinedTextField(
                         value = newSubjectMaxAbs,
                         onValueChange = { newSubjectMaxAbs = it },
-                        label = { Text("Limite Máximo de Faltas") },
+                        label = { Text("Máximo de Faltas") },
                         singleLine = true
                     )
                 }
