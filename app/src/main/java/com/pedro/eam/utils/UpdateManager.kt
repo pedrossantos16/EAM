@@ -2,7 +2,6 @@ package com.pedro.eam.utils
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.content.FileProvider
@@ -21,33 +20,67 @@ data class UpdateInfo(
 )
 
 object UpdateManager {
-    private const val VERSION_JSON_URL = "https://raw.githubusercontent.com/pedrossantos16/EAM/master/version.json"
+    // Consulta direta à API oficial do GitHub para pegar a última release e o link do APK exato
+    private const val GITHUB_API_URL = "https://api.github.com/repos/pedrossantos16/EAM/releases/latest"
 
     suspend fun checkForUpdate(currentVersionCode: Int): UpdateInfo? {
         return withContext(Dispatchers.IO) {
             try {
-                val url = URL(VERSION_JSON_URL)
+                val url = URL(GITHUB_API_URL)
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
+                connection.setRequestProperty("Accept", "application/vnd.github+json")
                 connection.connectTimeout = 5000
                 connection.readTimeout = 5000
 
                 if (connection.responseCode == 200) {
                     val jsonStr = connection.inputStream.bufferedReader().use { it.readText() }
                     val json = JSONObject(jsonStr)
-                    val remoteVersionCode = json.getInt("versionCode")
-                    val versionName = json.getString("versionName")
-                    val apkUrl = json.getString("apkUrl")
-                    val releaseNotes = json.optString("releaseNotes", "Nova atualização disponível!")
 
-                    if (remoteVersionCode > currentVersionCode) {
-                        return@withContext UpdateInfo(remoteVersionCode, versionName, apkUrl, releaseNotes)
+                    val tagName = json.getString("tag_name") // ex: "v1.0.12"
+                    val releaseNotes = json.optString("body", "Nova atualização disponível!")
+
+                    // Extrair código da versão a partir da tag
+                    val remoteVersionCode = extractVersionCode(tagName)
+
+                    // Procurar o link direto do APK nos assets da release
+                    var apkUrl = ""
+                    val assets = json.optJSONArray("assets")
+                    if (assets != null) {
+                        for (i in 0 until assets.length()) {
+                            val asset = assets.getJSONObject(i)
+                            val name = asset.getString("name")
+                            if (name.endsWith(".apk")) {
+                                apkUrl = asset.getString("browser_download_url")
+                                break
+                            }
+                        }
+                    }
+
+                    // Fallback se não encontrar o asset direto
+                    if (apkUrl.isBlank()) {
+                        apkUrl = "https://github.com/pedrossantos16/EAM/releases/latest/download/app-debug.apk"
+                    }
+
+                    Log.d("UpdateManager", "GitHub Tag: $tagName, RemoteCode: $remoteVersionCode, Current: $currentVersionCode")
+
+                    if (remoteVersionCode > currentVersionCode && apkUrl.isNotBlank()) {
+                        return@withContext UpdateInfo(remoteVersionCode, tagName, apkUrl, releaseNotes)
                     }
                 }
             } catch (e: Exception) {
-                Log.e("UpdateManager", "Erro ao verificar atualização: ${e.message}")
+                Log.e("UpdateManager", "Erro ao consultar GitHub API: ${e.message}")
             }
             null
+        }
+    }
+
+    private fun extractVersionCode(tagName: String): Int {
+        return try {
+            val digits = tagName.filter { it.isDigit() }
+            if (digits.isNotEmpty()) digits.toInt() else 1
+        } catch (e: Exception) {
+            1
         }
     }
 
@@ -82,9 +115,8 @@ object UpdateManager {
                     }
                 }
 
-                // Validar se o arquivo baixado é um APK válido (maior que 500KB)
                 if (outputFile.length() < 500 * 1024) {
-                    Log.e("UpdateManager", "O arquivo baixado é inválido (provavelmente HTML de erro).")
+                    Log.e("UpdateManager", "Arquivo baixado é inválido.")
                     return@withContext false
                 }
 
