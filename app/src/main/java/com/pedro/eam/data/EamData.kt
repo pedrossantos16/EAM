@@ -18,6 +18,8 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
+import java.time.LocalDate
+import java.time.LocalTime
 
 data class Course(
     val id: String = UUID.randomUUID().toString(),
@@ -75,9 +77,13 @@ data class EventItem(
     val subjectId: String,
     val title: String,
     val description: String = "",
-    val date: String = getFormattedDate(0),
+    val date: LocalDate = LocalDate.now(),
+    val time: LocalTime? = null,
     val type: EventType = EventType.PROVA,
-    val isCompleted: Boolean = false
+    val isCompleted: Boolean = false,
+    val completedAt: LocalDate? = null,
+    val reminderEnabled: Boolean = false,
+    val reminderMinutesBefore: Int = 30
 )
 
 fun getFormattedDate(daysOffset: Int): String {
@@ -171,7 +177,21 @@ object EamRepository {
                             val list = mutableListOf<EventEntity>()
                             for (i in 0 until eArr.length()) {
                                 val o = eArr.getJSONObject(i)
-                                list.add(EventEntity(o.getString("id"), o.getString("subjectId"), o.getString("title"), o.optString("description", ""), o.getString("date"), o.getString("type"), o.optBoolean("isCompleted", false)))
+                                list.add(
+                                    EventEntity(
+                                        id = o.getString("id"),
+                                        subjectId = o.getString("subjectId"),
+                                        title = o.getString("title"),
+                                        description = o.optString("description", ""),
+                                        date = o.getString("date"),
+                                        time = null,
+                                        type = o.optString("type", "PROVA"),
+                                        isCompleted = o.optBoolean("isCompleted", false),
+                                        completedAt = null,
+                                        reminderEnabled = false,
+                                        reminderMinutesBefore = 30
+                                    )
+                                )
                             }
                             database.eventDao().insertAllEvents(list)
                         }
@@ -214,9 +234,13 @@ object EamRepository {
                     subjectId = it.subjectId,
                     title = it.title,
                     description = it.description,
-                    date = it.date,
+                    date = try { LocalDate.parse(it.date) } catch (_: Exception) { LocalDate.now() },
+                    time = if (!it.time.isNullOrBlank()) try { LocalTime.parse(it.time) } catch (_: Exception) { null } else null,
                     type = try { EventType.valueOf(it.type) } catch (_: Exception) { EventType.PROVA },
-                    isCompleted = it.isCompleted
+                    isCompleted = it.isCompleted,
+                    completedAt = if (!it.completedAt.isNullOrBlank()) try { LocalDate.parse(it.completedAt) } catch (_: Exception) { null } else null,
+                    reminderEnabled = it.reminderEnabled,
+                    reminderMinutesBefore = it.reminderMinutesBefore
                 )
             })
         }
@@ -240,8 +264,8 @@ object EamRepository {
                 val sch2 = ScheduleItemEntity("sch2", "s2", 2, "09:30", "11:10", "Lab 03")
                 database.scheduleDao().insertAllScheduleItems(listOf(sch1, sch2))
 
-                val ev1 = EventEntity("e1", "s1", "Prova P1 de Cálculo I", "Conteúdo: Limites, Derivadas.", getFormattedDate(2), EventType.PROVA.name, false)
-                val ev2 = EventEntity("e2", "s2", "Entrega de Trabalho", "Árvores AVL.", getFormattedDate(5), EventType.TRABALHO.name, false)
+                val ev1 = EventEntity("e1", "s1", "Prova P1 de Cálculo I", "Conteúdo: Limites, Derivadas.", getFormattedDate(2), "08:00", EventType.PROVA.name, false, null, false, 30)
+                val ev2 = EventEntity("e2", "s2", "Entrega de Trabalho", "Árvores AVL.", getFormattedDate(5), "23:59", EventType.TRABALHO.name, false, null, false, 30)
                 database.eventDao().insertAllEvents(listOf(ev1, ev2))
             }
             refreshData()
@@ -322,17 +346,43 @@ object EamRepository {
         return absenceRecords.count { it.subjectId == subjectId }
     }
 
-    fun addEvent(subjectId: String, title: String, description: String, date: String, type: EventType) {
-        val event = EventEntity(id = UUID.randomUUID().toString(), subjectId = subjectId, title = title, description = description, date = date, type = type.name, isCompleted = false)
+    @SuppressLint("NewApi")
+    fun addEvent(subjectId: String, title: String, description: String, date: LocalDate, time: LocalTime?, type: EventType, reminderEnabled: Boolean, reminderMinutesBefore: Int) {
+        val event = EventEntity(
+            id = UUID.randomUUID().toString(),
+            subjectId = subjectId,
+            title = title,
+            description = description,
+            date = date.toString(),
+            time = time?.toString(),
+            type = type.name,
+            isCompleted = false,
+            completedAt = null,
+            reminderEnabled = reminderEnabled,
+            reminderMinutesBefore = reminderMinutesBefore
+        )
         CoroutineScope(Dispatchers.IO).launch {
             db?.eventDao()?.insertEvent(event)
             refreshData()
         }
     }
 
-    fun updateEvent(eventId: String, title: String, description: String, date: String, type: EventType) {
+    @SuppressLint("NewApi")
+    fun updateEvent(eventId: String, subjectId: String, title: String, description: String, date: LocalDate, time: LocalTime?, type: EventType, reminderEnabled: Boolean, reminderMinutesBefore: Int) {
         val existing = events.find { it.id == eventId } ?: return
-        val event = EventEntity(id = eventId, subjectId = existing.subjectId, title = title, description = description, date = date, type = type.name, isCompleted = existing.isCompleted)
+        val event = EventEntity(
+            id = eventId,
+            subjectId = subjectId,
+            title = title,
+            description = description,
+            date = date.toString(),
+            time = time?.toString(),
+            type = type.name,
+            isCompleted = existing.isCompleted,
+            completedAt = existing.completedAt?.toString(),
+            reminderEnabled = reminderEnabled,
+            reminderMinutesBefore = reminderMinutesBefore
+        )
         CoroutineScope(Dispatchers.IO).launch {
             db?.eventDao()?.insertEvent(event)
             refreshData()
@@ -346,10 +396,25 @@ object EamRepository {
         }
     }
 
+    @SuppressLint("NewApi")
     fun toggleEventComplete(eventId: String) {
         val existing = events.find { it.id == eventId } ?: return
-        val updated = existing.copy(isCompleted = !existing.isCompleted)
-        val entity = EventEntity(id = updated.id, subjectId = updated.subjectId, title = updated.title, description = updated.description, date = updated.date, type = updated.type.name, isCompleted = updated.isCompleted)
+        val newCompleted = !existing.isCompleted
+        val completedAtStr = if (newCompleted) LocalDate.now().toString() else null
+        val updated = existing.copy(isCompleted = newCompleted, completedAt = if (newCompleted) LocalDate.now() else null)
+        val entity = EventEntity(
+            id = updated.id,
+            subjectId = updated.subjectId,
+            title = updated.title,
+            description = updated.description,
+            date = updated.date.toString(),
+            time = updated.time?.toString(),
+            type = updated.type.name,
+            isCompleted = updated.isCompleted,
+            completedAt = completedAtStr,
+            reminderEnabled = updated.reminderEnabled,
+            reminderMinutesBefore = updated.reminderMinutesBefore
+        )
         CoroutineScope(Dispatchers.IO).launch {
             db?.eventDao()?.insertEvent(entity)
             refreshData()
@@ -379,7 +444,21 @@ object EamRepository {
         root.put("absenceRecords", absArr)
 
         val evArr = JSONArray()
-        events.forEach { ev -> evArr.put(JSONObject().put("id", ev.id).put("subjectId", ev.subjectId).put("title", ev.title).put("description", ev.description).put("date", ev.date).put("type", ev.type.name).put("isCompleted", ev.isCompleted)) }
+        events.forEach { ev ->
+            evArr.put(JSONObject().apply {
+                put("id", ev.id)
+                put("subjectId", ev.subjectId)
+                put("title", ev.title)
+                put("description", ev.description)
+                put("date", ev.date.toString())
+                put("time", ev.time?.toString() ?: JSONObject.NULL)
+                put("type", ev.type.name)
+                put("isCompleted", ev.isCompleted)
+                put("completedAt", ev.completedAt?.toString() ?: JSONObject.NULL)
+                put("reminderEnabled", ev.reminderEnabled)
+                put("reminderMinutesBefore", ev.reminderMinutesBefore)
+            })
+        }
         root.put("events", evArr)
 
         return root
@@ -422,7 +501,21 @@ object EamRepository {
                 val newEvents = mutableListOf<EventEntity>()
                 for (i in 0 until evArr.length()) {
                     val o = evArr.getJSONObject(i)
-                    newEvents.add(EventEntity(o.getString("id"), o.getString("subjectId"), o.getString("title"), o.optString("description", ""), o.getString("date"), o.getString("type"), o.optBoolean("isCompleted", false)))
+                    newEvents.add(
+                        EventEntity(
+                            id = o.getString("id"),
+                            subjectId = o.getString("subjectId"),
+                            title = o.getString("title"),
+                            description = o.optString("description", ""),
+                            date = o.getString("date"),
+                            time = if (o.has("time") && !o.isNull("time")) o.getString("time") else null,
+                            type = o.getString("type"),
+                            isCompleted = o.optBoolean("isCompleted", false),
+                            completedAt = if (o.has("completedAt") && !o.isNull("completedAt")) o.getString("completedAt") else null,
+                            reminderEnabled = o.optBoolean("reminderEnabled", false),
+                            reminderMinutesBefore = o.optInt("reminderMinutesBefore", 30)
+                        )
+                    )
                 }
 
                 database.withTransaction {

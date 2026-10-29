@@ -17,7 +17,7 @@ import java.util.UUID
         AttendanceRecordEntity::class,
         EventEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class EamDatabase : RoomDatabase() {
@@ -34,7 +34,6 @@ abstract class EamDatabase : RoomDatabase() {
 
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // 1. Criar a nova tabela attendance_records
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS `attendance_records` (
                         `id` TEXT NOT NULL,
@@ -54,7 +53,6 @@ abstract class EamDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_attendance_records_scheduleItemId` ON `attendance_records` (`scheduleItemId`)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_attendance_records_subjectId_scheduleItemId_date` ON `attendance_records` (`subjectId`, `scheduleItemId`, `date`)")
 
-                // 2. Migrar dados antigos de absence_records para attendance_records (regra conservadora)
                 val cursor = db.query("SELECT id, subjectId, date FROM absence_records")
                 while (cursor.moveToNext()) {
                     val subId = cursor.getString(1)
@@ -69,6 +67,15 @@ abstract class EamDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE events ADD COLUMN time TEXT")
+                db.execSQL("ALTER TABLE events ADD COLUMN completedAt TEXT")
+                db.execSQL("ALTER TABLE events ADD COLUMN reminderEnabled INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE events ADD COLUMN reminderMinutesBefore INTEGER NOT NULL DEFAULT 30")
+            }
+        }
+
         fun getDatabase(context: Context): EamDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -76,7 +83,7 @@ abstract class EamDatabase : RoomDatabase() {
                     EamDatabase::class.java,
                     "eam_database"
                 )
-                .addMigrations(MIGRATION_2_3)
+                .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
                 .build()
                 INSTANCE = instance
                 instance

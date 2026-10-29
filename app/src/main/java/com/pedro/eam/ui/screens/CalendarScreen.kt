@@ -261,7 +261,7 @@ fun CalendarScreen(
                                                     set(currentYear, currentMonth, dayNumber)
                                                 }
                                                 val dateStr = dateFormat.format(calDay.time)
-                                                val dayEvents = events.filter { it.date == dateStr }
+                                                val dayEvents = events.filter { it.date.toString() == dateStr }
                                                 val hasEvent = dayEvents.isNotEmpty()
                                                 val allCompleted = hasEvent && dayEvents.all { it.isCompleted }
 
@@ -491,7 +491,7 @@ fun CalendarScreen(
                     if (!ev.isCompleted) {
                         if (isEditingEvent) {
                             Button(onClick = {
-                                viewModel.updateEvent(ev.id, editTitle, editDesc, ev.date, editType)
+                                viewModel.updateEvent(ev.id, ev.subjectId, editTitle, editDesc, ev.date.toString(), ev.time?.toString(), ev.type)
                                 selectedEventForDialog = events.find { it.id == ev.id }
                                 isEditingEvent = false
                             }) {

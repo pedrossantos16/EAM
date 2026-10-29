@@ -119,6 +119,10 @@ data class EventEntity(
     val title: String,
     val description: String,
     val date: String,
+    val time: String?,
     val type: String,
-    val isCompleted: Boolean
+    val isCompleted: Boolean,
+    val completedAt: String?,
+    val reminderEnabled: Boolean,
+    val reminderMinutesBefore: Int
 )

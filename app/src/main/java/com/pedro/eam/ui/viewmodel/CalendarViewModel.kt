@@ -1,5 +1,6 @@
 package com.pedro.eam.ui.viewmodel
 
+import android.annotation.SuppressLint
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pedro.eam.data.*
@@ -8,6 +9,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.LocalTime
 
 data class CalendarUiState(
     val subjects: List<Subject> = emptyList(),
@@ -52,9 +55,12 @@ class CalendarViewModel : ViewModel() {
         }
     }
 
-    fun updateEvent(eventId: String, title: String, description: String, date: String, type: EventType) {
+    @SuppressLint("NewApi")
+    fun updateEvent(eventId: String, subjectId: String, title: String, description: String, dateStr: String, timeStr: String?, type: EventType) {
         viewModelScope.launch {
-            EamRepository.updateEvent(eventId, title, description, date, type)
+            val date = LocalDate.parse(dateStr)
+            val time = if (!timeStr.isNullOrBlank()) LocalTime.parse(timeStr) else null
+            EamRepository.updateEvent(eventId, subjectId, title, description, date, time, type, false, 30)
             loadData()
         }
     }
