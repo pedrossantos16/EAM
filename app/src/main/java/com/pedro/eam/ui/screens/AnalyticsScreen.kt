@@ -5,14 +5,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.pedro.eam.data.EamRepository
-import com.pedro.eam.data.EventType
 import com.pedro.eam.ui.components.BarChart
 import com.pedro.eam.ui.components.BarChartData
 import com.pedro.eam.ui.viewmodel.AnalyticsViewModel
@@ -24,38 +23,24 @@ fun AnalyticsScreen(
     viewModel: AnalyticsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val subjects = uiState.subjects
-    val events = uiState.events
 
-    val absencesChartData = subjects.map { sub ->
-        val absCount = EamRepository.getAbsenceCount(sub.id)
+    val absencesChartData = uiState.absenceAnalytics.map { item ->
         BarChartData(
-            label = sub.name,
-            value = absCount.toFloat(),
-            maxValue = sub.maxAbsences.toFloat().coerceAtLeast(5f),
-            color = if (absCount >= sub.maxAbsences * 0.7f) Color(0xFFE57373) else Color(0xFF64B5F6),
-            secondaryValue = sub.maxAbsences.toFloat(),
-            secondaryColor = Color.Gray
+            label = item.subject.name,
+            value = item.absencesCount.toFloat(),
+            maxValue = item.maxAbsences.toFloat().coerceAtLeast(1f),
+            color = if (item.isRisk) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            secondaryValue = item.maxAbsences.toFloat(),
+            secondaryColor = MaterialTheme.colorScheme.outline
         )
     }
 
-    val eventsPerSubjectData = subjects.map { sub ->
-        val count = events.count { it.subjectId == sub.id }.toFloat()
+    val dayLoadsChartData = uiState.dayClassLoads.map { day ->
         BarChartData(
-            label = sub.name,
-            value = count,
-            maxValue = 10f,
-            color = Color(0xFF81C784)
-        )
-    }
-
-    val eventsByTypeData = EventType.entries.map { type ->
-        val count = events.count { it.type == type }.toFloat()
-        BarChartData(
-            label = type.label,
-            value = count,
-            maxValue = 10f,
-            color = Color(0xFFFFB74D)
+            label = day.dayName,
+            value = day.classesCount.toFloat(),
+            maxValue = 8f,
+            color = MaterialTheme.colorScheme.tertiary
         )
     }
 
@@ -66,7 +51,7 @@ fun AnalyticsScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
-                title = { Text("Análises & Gráficos", fontWeight = FontWeight.Bold) },
+                title = { Text("Análises & Diagnóstico", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -78,8 +63,9 @@ fun AnalyticsScreen(
                     .fillMaxSize()
                     .weight(1f),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
+                // 1. Faltas e Limites por Matéria
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -88,14 +74,15 @@ fun AnalyticsScreen(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             BarChart(
-                                title = "Faltas por Matéria",
-                                subtitle = "",
+                                title = "Faltas e Limite por Matéria",
+                                subtitle = "Acompanhe o consumo do limite de frequência",
                                 items = absencesChartData
                             )
                         }
                     }
                 }
 
+                // 2. Carga Horária Semanal
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -104,14 +91,15 @@ fun AnalyticsScreen(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             BarChart(
-                                title = "Eventos por Matéria",
-                                subtitle = "",
-                                items = eventsPerSubjectData
+                                title = "Carga Horária Semanal",
+                                subtitle = "Quantidade de aulas por dia da semana",
+                                items = dayLoadsChartData
                             )
                         }
                     }
                 }
 
+                // 3. Resumo de Prazos e Status de Eventos
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -119,11 +107,30 @@ fun AnalyticsScreen(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            BarChart(
-                                title = "Eventos por Categoria",
-                                subtitle = "",
-                                items = eventsByTypeData
-                            )
+                            Text("📊 Resumo de Prazos e Compromissos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceAround
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(uiState.eventSummary.upcoming7DaysCount.toString(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    Text("Próx. 7 dias", style = MaterialTheme.typography.bodySmall)
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(uiState.eventSummary.upcoming30DaysCount.toString(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
+                                    Text("Próx. 30 dias", style = MaterialTheme.typography.bodySmall)
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(uiState.eventSummary.overdueCount.toString(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                                    Text("Vencidos", style = MaterialTheme.typography.bodySmall)
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(uiState.eventSummary.completedCount.toString(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color(0xFF4CAF50))
+                                    Text("Concluídos", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
                         }
                     }
                 }

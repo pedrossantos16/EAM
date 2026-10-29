@@ -1,3 +1,13 @@
 <resources>
     <string name="app_name">EAM</string>
+    <string name="agenda_title">Agenda Acadêmica</string>
+    <string name="courses_title">Cursos &amp; Matérias</string>
+    <string name="schedule_title">Grade de Horários</string>
+    <string name="events_title">Eventos &amp; Provas</string>
+    <string name="analytics_title">Análises &amp; Diagnóstico</string>
+
+    <string name="no_data_available">Nenhum dado disponível para análise</string>
+    <string name="today_question">📌 O que tenho hoje?</string>
+    <string name="upcoming_question">⏳ O que está chegando (Próximos 7 dias)?</string>
+    <string name="frequency_risk_question">⚠️ Como está minha frequência?</string>
 </resources>
