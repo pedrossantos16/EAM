@@ -342,4 +342,88 @@ object EamRepository {
             saveData()
         }
     }
+
+    fun getBackupSnapshot(): JSONObject {
+        val root = JSONObject()
+        root.put("schemaVersion", 1)
+        root.put("exportedAt", System.currentTimeMillis())
+        root.put("appVersion", 18)
+
+        val cArr = JSONArray()
+        courses.forEach { c -> cArr.put(JSONObject().put("id", c.id).put("name", c.name).put("description", c.description)) }
+        root.put("courses", cArr)
+
+        val sArr = JSONArray()
+        subjects.forEach { s -> sArr.put(JSONObject().put("id", s.id).put("courseId", s.courseId).put("name", s.name).put("professor", s.professor).put("maxAbsences", s.maxAbsences).put("room", s.room)) }
+        root.put("subjects", sArr)
+
+        val scArr = JSONArray()
+        scheduleItems.forEach { sc -> scArr.put(JSONObject().put("id", sc.id).put("subjectId", sc.subjectId).put("dayOfWeek", sc.dayOfWeek).put("startTime", sc.startTime).put("endTime", sc.endTime).put("room", sc.room)) }
+        root.put("scheduleItems", scArr)
+
+        val absArr = JSONArray()
+        absenceRecords.forEach { ar -> absArr.put(JSONObject().put("id", ar.id).put("subjectId", ar.subjectId).put("date", ar.date)) }
+        root.put("absenceRecords", absArr)
+
+        val evArr = JSONArray()
+        events.forEach { ev -> evArr.put(JSONObject().put("id", ev.id).put("subjectId", ev.subjectId).put("title", ev.title).put("description", ev.description).put("date", ev.date).put("type", ev.type.name).put("isCompleted", ev.isCompleted)) }
+        root.put("events", evArr)
+
+        return root
+    }
+
+    fun restoreFromSnapshot(json: JSONObject): Boolean {
+        return try {
+            val cArr = json.getJSONArray("courses")
+            val sArr = json.getJSONArray("subjects")
+            val scArr = json.getJSONArray("scheduleItems")
+            val absArr = json.getJSONArray("absenceRecords")
+            val evArr = json.getJSONArray("events")
+
+            val newCourses = mutableListOf<Course>()
+            for (i in 0 until cArr.length()) {
+                val o = cArr.getJSONObject(i)
+                newCourses.add(Course(o.getString("id"), o.getString("name"), o.optString("description", "")))
+            }
+
+            val newSubjects = mutableListOf<Subject>()
+            for (i in 0 until sArr.length()) {
+                val o = sArr.getJSONObject(i)
+                newSubjects.add(Subject(o.getString("id"), o.getString("courseId"), o.getString("name"), o.optString("professor", ""), o.optInt("maxAbsences", 15), o.optString("room", "")))
+            }
+
+            val newSchedule = mutableListOf<ScheduleItem>()
+            for (i in 0 until scArr.length()) {
+                val o = scArr.getJSONObject(i)
+                newSchedule.add(ScheduleItem(o.getString("id"), o.getString("subjectId"), o.getInt("dayOfWeek"), o.getString("startTime"), o.getString("endTime"), o.optString("room", "")))
+            }
+
+            val newAbs = mutableListOf<AbsenceRecord>()
+            for (i in 0 until absArr.length()) {
+                val o = absArr.getJSONObject(i)
+                newAbs.add(AbsenceRecord(o.getString("id"), o.getString("subjectId"), o.getString("date")))
+            }
+
+            val newEvents = mutableListOf<EventItem>()
+            for (i in 0 until evArr.length()) {
+                val o = evArr.getJSONObject(i)
+                newEvents.add(EventItem(o.getString("id"), o.getString("subjectId"), o.getString("title"), o.optString("description", ""), o.getString("date"), try { EventType.valueOf(o.getString("type")) } catch (_: Exception) { EventType.PROVA }, o.optBoolean("isCompleted", false)))
+            }
+
+            courses.clear()
+            courses.addAll(newCourses)
+            subjects.clear()
+            subjects.addAll(newSubjects)
+            scheduleItems.clear()
+            scheduleItems.addAll(newSchedule)
+            absenceRecords.clear()
+            absenceRecords.addAll(newAbs)
+            events.clear()
+            events.addAll(newEvents)
+            saveData()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
 }

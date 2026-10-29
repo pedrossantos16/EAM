@@ -44,10 +44,32 @@ jobs:
             echo "NEW_VERSION_NAME=$NEW_VERSION_NAME" >> $GITHUB_ENV
           fi
 
-      - name: Decode Keystore from Secrets
+      - name: Verify GitHub Secrets Exist
         run: |
-          if [ -n "${{ secrets.EAM_KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.EAM_KEYSTORE_BASE64 }}" | base64 --decode > app/release.jks
+          MISSING=""
+          [ -z "${{ secrets.EAM_KEYSTORE_BASE64 }}" ] && MISSING="$MISSING EAM_KEYSTORE_BASE64"
+          [ -z "${{ secrets.EAM_KEYSTORE_PASSWORD }}" ] && MISSING="$MISSING EAM_KEYSTORE_PASSWORD"
+          [ -z "${{ secrets.EAM_KEY_ALIAS }}" ] && MISSING="$MISSING EAM_KEY_ALIAS"
+          [ -z "${{ secrets.EAM_KEY_PASSWORD }}" ] && MISSING="$MISSING EAM_KEY_PASSWORD"
+          
+          if [ -n "$MISSING" ]; then
+            echo "❌ ERRO CRÍTICO: Os seguintes Secrets do GitHub estão ausentes:$MISSING"
+            echo "Por favor, cadastre todos os 4 secrets em Settings > Secrets and variables > Actions."
+            exit 1
+          else
+            echo "✅ Todos os 4 secrets obrigatórios estão presentes."
+          fi
+
+      - name: Decode Keystore from Secrets and Validate
+        run: |
+          mkdir -p app
+          echo "${{ secrets.EAM_KEYSTORE_BASE64 }}" | base64 --decode > app/release.jks
+          
+          if [ ! -s "app/release.jks" ]; then
+            echo "❌ ERRO: O arquivo app/release.jks não foi gerado ou está vazio após a decodificação Base64."
+            exit 1
+          else
+            echo "✅ Keystore decodificada com sucesso em app/release.jks (tamanho: $(stat -c%s app/release.jks) bytes)."
           fi
 
       - name: Build Release APK
@@ -76,7 +98,6 @@ jobs:
           echo "SHA256=$SHA256" >> $GITHUB_ENV
           echo "APK_SIZE=$APK_SIZE" >> $GITHUB_ENV
 
-          # Verificar assinatura (se keystore existir)
           if [ -f "app/release.jks" ]; then
             $ANDROID_HOME/build-tools/34.0.0/apksigner verify --verbose --print-certs "$FINAL_APK_PATH"
           fi
@@ -112,5 +133,4 @@ jobs:
           git commit -m "release: bump version to ${{ env.NEW_VERSION_NAME }} [skip ci]"
           git push
           
-          # Remover keystore temporário
           rm -f app/release.jks

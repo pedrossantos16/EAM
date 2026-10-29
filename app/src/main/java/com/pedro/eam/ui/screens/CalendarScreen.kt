@@ -1,5 +1,8 @@
 package com.pedro.eam.ui.screens
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,12 +17,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.pedro.eam.data.EamRepository
 import com.pedro.eam.data.EventItem
 import com.pedro.eam.data.EventType
+import com.pedro.eam.utils.BackupManager
+import com.pedro.eam.utils.BackupSummary
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -30,6 +37,7 @@ fun CalendarScreen(
     onNavigateToSchedule: () -> Unit,
     onNavigateToEvents: () -> Unit
 ) {
+    val context = LocalContext.current
     var selectedDateForAbsence by remember { mutableStateOf<String?>(null) }
     var selectedEventForDialog by remember { mutableStateOf<EventItem?>(null) }
     var isEditingEvent by remember { mutableStateOf(false) }
@@ -37,6 +45,47 @@ fun CalendarScreen(
     var editTitle by remember { mutableStateOf("") }
     var editDesc by remember { mutableStateOf("") }
     var editType by remember { mutableStateOf(EventType.PROVA) }
+
+    // Backup & Restore state
+    var pendingRestoreJson by remember { mutableStateOf<String?>(null) }
+    var restoreSummary by remember { mutableStateOf<BackupSummary?>(null) }
+    var restoreError by remember { mutableStateOf<String?>(null) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { output ->
+                    val json = EamRepository.getBackupSnapshot().toString(2)
+                    output.write(json.toByteArray())
+                }
+                Toast.makeText(context, "Backup exportado com sucesso!", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Erro ao exportar backup: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val jsonStr = context.contentResolver.openInputStream(uri)?.bufferedReader().use { it?.readText() } ?: ""
+                val validationResult = BackupManager.validateAndGetSummary(jsonStr)
+                if (validationResult.isSuccess) {
+                    val (summary, jsonObj) = validationResult.getOrThrow()
+                    restoreSummary = summary
+                    pendingRestoreJson = jsonObj.toString()
+                } else {
+                    restoreError = validationResult.exceptionOrNull()?.localizedMessage ?: "Arquivo inválido."
+                }
+            } catch (e: Exception) {
+                restoreError = "Erro ao ler arquivo: ${e.localizedMessage}"
+            }
+        }
+    }
 
     val subjects = EamRepository.subjects
     val scheduleItems = EamRepository.scheduleItems
@@ -62,6 +111,19 @@ fun CalendarScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
                 title = { Text("Agenda & Visão Geral", fontWeight = FontWeight.Bold) },
+                actions = {
+                    IconButton(onClick = {
+                        val fileName = "eam_backup_${SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.getDefault()).format(Date())}.json"
+                        exportLauncher.launch(fileName)
+                    }) {
+                        Icon(Icons.Default.Upload, contentDescription = "Exportar Backup")
+                    }
+                    IconButton(onClick = {
+                        importLauncher.launch(arrayOf("application/json", "*/*"))
+                    }) {
+                        Icon(Icons.Default.Download, contentDescription = "Restaurar Backup")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -248,6 +310,72 @@ fun CalendarScreen(
                 }
             }
         }
+    }
+
+    // Restore Summary Dialog
+    if (restoreSummary != null) {
+        val summary = restoreSummary!!
+        AlertDialog(
+            onDismissRequest = { restoreSummary = null; pendingRestoreJson = null },
+            title = { Text("Resumo do Backup") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Data: ${summary.exportedAt}")
+                    Text("Versão do App: ${summary.appVersion}")
+                    Text("Cursos: ${summary.coursesCount}")
+                    Text("Matérias: ${summary.subjectsCount}")
+                    Text("Horários: ${summary.scheduleCount}")
+                    Text("Faltas: ${summary.absencesCount}")
+                    Text("Eventos: ${summary.eventsCount}")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Deseja substituir todos os dados atuais por este backup? Esta ação não pode ser desfeita.", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val jsonStr = pendingRestoreJson
+                        if (jsonStr != null) {
+                            try {
+                                val jsonObj = JSONObject(jsonStr)
+                                val success = EamRepository.restoreFromSnapshot(jsonObj)
+                                if (success) {
+                                    Toast.makeText(context, "Restaurado com sucesso!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Falha na restauração transacional.", Toast.LENGTH_SHORT).show()
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Erro: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        restoreSummary = null
+                        pendingRestoreJson = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Restaurar Dados")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { restoreSummary = null; pendingRestoreJson = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // Restore Error Dialog
+    if (restoreError != null) {
+        AlertDialog(
+            onDismissRequest = { restoreError = null },
+            title = { Text("Erro no Backup") },
+            text = { Text(restoreError!!) },
+            confirmButton = {
+                Button(onClick = { restoreError = null }) {
+                    Text("OK")
+                }
+            }
+        )
     }
 
     // Dialog 1: Absence Registration for Selected Date
