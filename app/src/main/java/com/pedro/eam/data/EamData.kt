@@ -4,6 +4,13 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
+import androidx.room.withTransaction
+import com.pedro.eam.data.room.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -73,227 +80,211 @@ object EamRepository {
     val absenceRecords = mutableStateListOf<AbsenceRecord>()
     val events = mutableStateListOf<EventItem>()
 
+    private var db: EamDatabase? = null
     private var prefs: SharedPreferences? = null
     private var isInitialized = false
 
     fun init(context: Context) {
         if (isInitialized) return
-        prefs = context.getSharedPreferences("eam_prefs", Context.MODE_PRIVATE)
-        loadData()
+        val appContext = context.applicationContext
+        db = EamDatabase.getDatabase(appContext)
+        prefs = appContext.getSharedPreferences("eam_prefs", Context.MODE_PRIVATE)
+
+        CoroutineScope(Dispatchers.IO).launch {
+            checkAndMigrateFromSharedPreferences()
+            refreshData()
+        }
         isInitialized = true
     }
 
-    private fun saveData() {
+    private suspend fun checkAndMigrateFromSharedPreferences() {
+        val database = db ?: return
         val p = prefs ?: return
-        val editor = p.edit()
+        val migrationDone = p.getBoolean("migration_to_room_completed", false)
 
-        val coursesArr = JSONArray()
-        courses.forEach { c ->
-            coursesArr.put(JSONObject().apply {
-                put("id", c.id)
-                put("name", c.name)
-                put("description", c.description)
-            })
+        if (!migrationDone) {
+            try {
+                val coursesJson = p.getString("courses", null)
+                val subjectsJson = p.getString("subjects", null)
+                val scheduleJson = p.getString("schedule", null)
+                val absencesJson = p.getString("absences", null)
+                val eventsJson = p.getString("events", null)
+
+                if (coursesJson != null || subjectsJson != null || scheduleJson != null || absencesJson != null || eventsJson != null) {
+                    database.withTransaction {
+                        if (coursesJson != null) {
+                            val cArr = JSONArray(coursesJson)
+                            val list = mutableListOf<CourseEntity>()
+                            for (i in 0 until cArr.length()) {
+                                val o = cArr.getJSONObject(i)
+                                list.add(CourseEntity(o.getString("id"), o.getString("name"), o.optString("description", "")))
+                            }
+                            database.courseDao().insertAllCourses(list)
+                        }
+
+                        if (subjectsJson != null) {
+                            val sArr = JSONArray(subjectsJson)
+                            val list = mutableListOf<SubjectEntity>()
+                            for (i in 0 until sArr.length()) {
+                                val o = sArr.getJSONObject(i)
+                                list.add(SubjectEntity(o.getString("id"), o.getString("courseId"), o.getString("name"), o.optString("professor", ""), o.optInt("maxAbsences", 15), o.optString("room", "")))
+                            }
+                            database.subjectDao().insertAllSubjects(list)
+                        }
+
+                        if (scheduleJson != null) {
+                            val scArr = JSONArray(scheduleJson)
+                            val list = mutableListOf<ScheduleItemEntity>()
+                            for (i in 0 until scArr.length()) {
+                                val o = scArr.getJSONObject(i)
+                                list.add(ScheduleItemEntity(o.getString("id"), o.getString("subjectId"), o.getInt("dayOfWeek"), o.getString("startTime"), o.getString("endTime"), o.optString("room", "")))
+                            }
+                            database.scheduleDao().insertAllScheduleItems(list)
+                        }
+
+                        if (absencesJson != null) {
+                            val aArr = JSONArray(absencesJson)
+                            val list = mutableListOf<AbsenceRecordEntity>()
+                            for (i in 0 until aArr.length()) {
+                                val o = aArr.getJSONObject(i)
+                                list.add(AbsenceRecordEntity(o.getString("id"), o.getString("subjectId"), o.getString("date")))
+                            }
+                            database.absenceDao().insertAllAbsences(list)
+                        }
+
+                        if (eventsJson != null) {
+                            val eArr = JSONArray(eventsJson)
+                            val list = mutableListOf<EventEntity>()
+                            for (i in 0 until eArr.length()) {
+                                val o = eArr.getJSONObject(i)
+                                list.add(EventEntity(o.getString("id"), o.getString("subjectId"), o.getString("title"), o.optString("description", ""), o.getString("date"), o.getString("type"), o.optBoolean("isCompleted", false)))
+                            }
+                            database.eventDao().insertAllEvents(list)
+                        }
+                    }
+                }
+
+                p.edit().putBoolean("migration_to_room_completed", true).apply()
+                Log.i("EamRepository", "Migração de SharedPreferences para Room concluída com sucesso.")
+            } catch (e: Exception) {
+                Log.e("EamRepository", "Erro na migração para Room (dados antigos preservados): ${e.message}")
+            }
         }
-        editor.putString("courses", coursesArr.toString())
-
-        val subsArr = JSONArray()
-        subjects.forEach { s ->
-            subsArr.put(JSONObject().apply {
-                put("id", s.id)
-                put("courseId", s.courseId)
-                put("name", s.name)
-                put("professor", s.professor)
-                put("maxAbsences", s.maxAbsences)
-                put("room", s.room)
-            })
-        }
-        editor.putString("subjects", subsArr.toString())
-
-        val schArr = JSONArray()
-        scheduleItems.forEach { sc ->
-            schArr.put(JSONObject().apply {
-                put("id", sc.id)
-                put("subjectId", sc.subjectId)
-                put("dayOfWeek", sc.dayOfWeek)
-                put("startTime", sc.startTime)
-                put("endTime", sc.endTime)
-                put("room", sc.room)
-            })
-        }
-        editor.putString("schedule", schArr.toString())
-
-        val absArr = JSONArray()
-        absenceRecords.forEach { ar ->
-            absArr.put(JSONObject().apply {
-                put("id", ar.id)
-                put("subjectId", ar.subjectId)
-                put("date", ar.date)
-            })
-        }
-        editor.putString("absences", absArr.toString())
-
-        val evArr = JSONArray()
-        events.forEach { ev ->
-            evArr.put(JSONObject().apply {
-                put("id", ev.id)
-                put("subjectId", ev.subjectId)
-                put("title", ev.title)
-                put("description", ev.description)
-                put("date", ev.date)
-                put("type", ev.type.name)
-                put("isCompleted", ev.isCompleted)
-            })
-        }
-        editor.putString("events", evArr.toString())
-
-        editor.apply()
     }
 
-    private fun loadData() {
-        val p = prefs ?: return
-        val hasData = p.contains("courses")
+    suspend fun refreshData() {
+        val database = db ?: return
+        val cList = database.courseDao().getAllCoursesList()
+        val sList = database.subjectDao().getAllSubjectsList()
+        val scList = database.scheduleDao().getAllScheduleItemsList()
+        val aList = database.absenceDao().getAllAbsencesList()
+        val eList = database.eventDao().getAllEventsList()
 
-        if (!hasData) {
-            courses.addAll(listOf(
-                Course(id = "c1", name = "Ciência da Computação", description = "Bacharelado integral"),
-                Course(id = "c2", name = "Engenharia de Software", description = "Ênfase em sistemas móveis")
-            ))
-
-            subjects.addAll(listOf(
-                Subject(id = "s1", courseId = "c1", name = "Cálculo I", professor = "Dr. Carlos", maxAbsences = 15, room = "Sala 101"),
-                Subject(id = "s2", courseId = "c1", name = "Estrutura de Dados", professor = "Dra. Ana", maxAbsences = 12, room = "Lab 03"),
-                Subject(id = "s3", courseId = "c2", name = "Desenvolvimento Mobile", professor = "Prof. Marcos", maxAbsences = 10, room = "Lab 05"),
-                Subject(id = "s4", courseId = "c2", name = "Banco de Dados", professor = "Dra. Beatriz", maxAbsences = 15, room = "Sala 204")
-            ))
-
-            scheduleItems.addAll(listOf(
-                ScheduleItem(id = "sch1", subjectId = "s1", dayOfWeek = 1, startTime = "07:30", endTime = "09:10", room = "Sala 101"),
-                ScheduleItem(id = "sch2", subjectId = "s2", dayOfWeek = 2, startTime = "09:30", endTime = "11:10", room = "Lab 03"),
-                ScheduleItem(id = "sch3", subjectId = "s3", dayOfWeek = 3, startTime = "13:30", endTime = "15:10", room = "Lab 05"),
-                ScheduleItem(id = "sch4", subjectId = "s4", dayOfWeek = 4, startTime = "15:30", endTime = "17:10", room = "Sala 204")
-            ))
-
-            events.addAll(listOf(
-                EventItem(id = "e1", subjectId = "s1", title = "Prova P1 de Cálculo I", description = "Conteúdo: Limites, Derivadas.", date = getFormattedDate(2), type = EventType.PROVA),
-                EventItem(id = "e2", subjectId = "s2", title = "Entrega de Trabalho", description = "Árvores AVL.", date = getFormattedDate(5), type = EventType.TRABALHO)
-            ))
-
-            saveData()
-            return
-        }
-
-        try {
+        withContext(Dispatchers.Main) {
             courses.clear()
-            val coursesJson = p.getString("courses", "[]") ?: "[]"
-            val cArr = JSONArray(coursesJson)
-            for (i in 0 until cArr.length()) {
-                val obj = cArr.getJSONObject(i)
-                courses.add(Course(
-                    id = obj.getString("id"),
-                    name = obj.getString("name"),
-                    description = obj.optString("description", "")
-                ))
-            }
+            courses.addAll(cList.map { Course(it.id, it.name, it.description) })
 
             subjects.clear()
-            val subsJson = p.getString("subjects", "[]") ?: "[]"
-            val sArr = JSONArray(subsJson)
-            for (i in 0 until sArr.length()) {
-                val obj = sArr.getJSONObject(i)
-                subjects.add(Subject(
-                    id = obj.getString("id"),
-                    courseId = obj.getString("courseId"),
-                    name = obj.getString("name"),
-                    professor = obj.optString("professor", ""),
-                    maxAbsences = obj.optInt("maxAbsences", 15),
-                    room = obj.optString("room", "")
-                ))
-            }
+            subjects.addAll(sList.map { Subject(it.id, it.courseId, it.name, it.professor, it.maxAbsences, it.room) })
 
             scheduleItems.clear()
-            val schJson = p.getString("schedule", "[]") ?: "[]"
-            val scArr = JSONArray(schJson)
-            for (i in 0 until scArr.length()) {
-                val obj = scArr.getJSONObject(i)
-                scheduleItems.add(ScheduleItem(
-                    id = obj.getString("id"),
-                    subjectId = obj.getString("subjectId"),
-                    dayOfWeek = obj.getInt("dayOfWeek"),
-                    startTime = obj.getString("startTime"),
-                    endTime = obj.getString("endTime"),
-                    room = obj.optString("room", "")
-                ))
-            }
+            scheduleItems.addAll(scList.map { ScheduleItem(it.id, it.subjectId, it.dayOfWeek, it.startTime, it.endTime, it.room) })
 
             absenceRecords.clear()
-            val absJson = p.getString("absences", "[]") ?: "[]"
-            val aArr = JSONArray(absJson)
-            for (i in 0 until aArr.length()) {
-                val obj = aArr.getJSONObject(i)
-                absenceRecords.add(AbsenceRecord(
-                    id = obj.getString("id"),
-                    subjectId = obj.getString("subjectId"),
-                    date = obj.getString("date")
-                ))
-            }
+            absenceRecords.addAll(aList.map { AbsenceRecord(it.id, it.subjectId, it.date) })
 
             events.clear()
-            val evJson = p.getString("events", "[]") ?: "[]"
-            val eArr = JSONArray(evJson)
-            for (i in 0 until eArr.length()) {
-                val obj = eArr.getJSONObject(i)
-                events.add(EventItem(
-                    id = obj.getString("id"),
-                    subjectId = obj.getString("subjectId"),
-                    title = obj.getString("title"),
-                    description = obj.optString("description", ""),
-                    date = obj.getString("date"),
-                    type = try { EventType.valueOf(obj.getString("type")) } catch (_: Exception) { EventType.PROVA },
-                    isCompleted = obj.optBoolean("isCompleted", false)
-                ))
+            events.addAll(eList.map {
+                EventItem(
+                    id = it.id,
+                    subjectId = it.subjectId,
+                    title = it.title,
+                    description = it.description,
+                    date = it.date,
+                    type = try { EventType.valueOf(it.type) } catch (_: Exception) { EventType.PROVA },
+                    isCompleted = it.isCompleted
+                )
+            })
+        }
+    }
+
+    fun loadSampleData() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val database = db ?: return@launch
+            database.withTransaction {
+                val c1 = CourseEntity("c1", "Ciência da Computação", "Bacharelado integral")
+                val c2 = CourseEntity("c2", "Engenharia de Software", "Ênfase em sistemas móveis")
+                database.courseDao().insertAllCourses(listOf(c1, c2))
+
+                val s1 = SubjectEntity("s1", "c1", "Cálculo I", "Dr. Carlos", 15, "Sala 101")
+                val s2 = SubjectEntity("s2", "c1", "Estrutura de Dados", "Dra. Ana", 12, "Lab 03")
+                val s3 = SubjectEntity("s3", "c2", "Desenvolvimento Mobile", "Prof. Marcos", 10, "Lab 05")
+                val s4 = SubjectEntity("s4", "c2", "Banco de Dados", "Dra. Beatriz", 15, "Sala 204")
+                database.subjectDao().insertAllSubjects(listOf(s1, s2, s3, s4))
+
+                val sch1 = ScheduleItemEntity("sch1", "s1", 1, "07:30", "09:10", "Sala 101")
+                val sch2 = ScheduleItemEntity("sch2", "s2", 2, "09:30", "11:10", "Lab 03")
+                database.scheduleDao().insertAllScheduleItems(listOf(sch1, sch2))
+
+                val ev1 = EventEntity("e1", "s1", "Prova P1 de Cálculo I", "Conteúdo: Limites, Derivadas.", getFormattedDate(2), EventType.PROVA.name, false)
+                val ev2 = EventEntity("e2", "s2", "Entrega de Trabalho", "Árvores AVL.", getFormattedDate(5), EventType.TRABALHO.name, false)
+                database.eventDao().insertAllEvents(listOf(ev1, ev2))
             }
-        } catch (e: Exception) {
-            Log.e("EamRepository", "Erro ao carregar dados salvos: ${e.message}")
+            refreshData()
         }
     }
 
     fun addCourse(name: String, description: String) {
-        courses.add(Course(name = name, description = description))
-        saveData()
+        val course = CourseEntity(id = UUID.randomUUID().toString(), name = name, description = description)
+        CoroutineScope(Dispatchers.IO).launch {
+            db?.courseDao()?.insertCourse(course)
+            refreshData()
+        }
     }
 
     fun removeCourse(courseId: String) {
-        val subIds = subjects.filter { it.courseId == courseId }.map { it.id }
-        scheduleItems.removeAll { subIds.contains(it.subjectId) }
-        absenceRecords.removeAll { subIds.contains(it.subjectId) }
-        events.removeAll { subIds.contains(it.subjectId) }
-        subjects.removeAll { it.courseId == courseId }
-        courses.removeAll { it.id == courseId }
-        saveData()
+        CoroutineScope(Dispatchers.IO).launch {
+            db?.let { database ->
+                database.withTransaction {
+                    database.courseDao().deleteCourse(courseId)
+                }
+            }
+            refreshData()
+        }
     }
 
     fun addSubject(courseId: String, name: String, professor: String, maxAbsences: Int, room: String) {
-        subjects.add(Subject(courseId = courseId, name = name, professor = professor, maxAbsences = maxAbsences, room = room))
-        saveData()
+        val subject = SubjectEntity(id = UUID.randomUUID().toString(), courseId = courseId, name = name, professor = professor, maxAbsences = maxAbsences, room = room)
+        CoroutineScope(Dispatchers.IO).launch {
+            db?.subjectDao()?.insertSubject(subject)
+            refreshData()
+        }
     }
 
     fun removeSubject(subjectId: String) {
-        scheduleItems.removeAll { it.subjectId == subjectId }
-        absenceRecords.removeAll { it.subjectId == subjectId }
-        events.removeAll { it.subjectId == subjectId }
-        subjects.removeAll { it.id == subjectId }
-        saveData()
+        CoroutineScope(Dispatchers.IO).launch {
+            db?.let { database ->
+                database.withTransaction {
+                    database.subjectDao().deleteSubject(subjectId)
+                }
+            }
+            refreshData()
+        }
     }
 
     fun addScheduleItem(subjectId: String, dayOfWeek: Int, startTime: String, endTime: String, room: String) {
-        scheduleItems.add(ScheduleItem(subjectId = subjectId, dayOfWeek = dayOfWeek, startTime = startTime, endTime = endTime, room = room))
-        saveData()
+        val item = ScheduleItemEntity(id = UUID.randomUUID().toString(), subjectId = subjectId, dayOfWeek = dayOfWeek, startTime = startTime, endTime = endTime, room = room)
+        CoroutineScope(Dispatchers.IO).launch {
+            db?.scheduleDao()?.insertScheduleItem(item)
+            refreshData()
+        }
     }
 
     fun removeScheduleItem(itemId: String) {
-        scheduleItems.removeAll { it.id == itemId }
-        saveData()
+        CoroutineScope(Dispatchers.IO).launch {
+            db?.scheduleDao()?.deleteScheduleItem(itemId)
+            refreshData()
+        }
     }
 
     fun isAbsentOnDate(subjectId: String, date: String): Boolean {
@@ -301,14 +292,16 @@ object EamRepository {
     }
 
     fun setAbsenceForDate(subjectId: String, date: String, isAbsent: Boolean) {
-        if (isAbsent) {
-            if (!isAbsentOnDate(subjectId, date)) {
-                absenceRecords.add(AbsenceRecord(subjectId = subjectId, date = date))
+        CoroutineScope(Dispatchers.IO).launch {
+            val database = db ?: return@launch
+            if (isAbsent) {
+                val record = AbsenceRecordEntity(id = UUID.randomUUID().toString(), subjectId = subjectId, date = date)
+                database.absenceDao().insertAbsence(record)
+            } else {
+                database.absenceDao().deleteAbsence(subjectId, date)
             }
-        } else {
-            absenceRecords.removeAll { it.subjectId == subjectId && it.date == date }
+            refreshData()
         }
-        saveData()
     }
 
     fun getAbsenceCount(subjectId: String): Int {
@@ -316,30 +309,36 @@ object EamRepository {
     }
 
     fun addEvent(subjectId: String, title: String, description: String, date: String, type: EventType) {
-        events.add(EventItem(subjectId = subjectId, title = title, description = description, date = date, type = type))
-        saveData()
+        val event = EventEntity(id = UUID.randomUUID().toString(), subjectId = subjectId, title = title, description = description, date = date, type = type.name, isCompleted = false)
+        CoroutineScope(Dispatchers.IO).launch {
+            db?.eventDao()?.insertEvent(event)
+            refreshData()
+        }
     }
 
     fun updateEvent(eventId: String, title: String, description: String, date: String, type: EventType) {
-        val index = events.indexOfFirst { it.id == eventId }
-        if (index != -1) {
-            val ev = events[index]
-            events[index] = ev.copy(title = title, description = description, date = date, type = type)
-            saveData()
+        val existing = events.find { it.id == eventId } ?: return
+        val event = EventEntity(id = eventId, subjectId = existing.subjectId, title = title, description = description, date = date, type = type.name, isCompleted = existing.isCompleted)
+        CoroutineScope(Dispatchers.IO).launch {
+            db?.eventDao()?.insertEvent(event)
+            refreshData()
         }
     }
 
     fun removeEvent(eventId: String) {
-        events.removeAll { it.id == eventId }
-        saveData()
+        CoroutineScope(Dispatchers.IO).launch {
+            db?.eventDao()?.deleteEvent(eventId)
+            refreshData()
+        }
     }
 
     fun toggleEventComplete(eventId: String) {
-        val index = events.indexOfFirst { it.id == eventId }
-        if (index != -1) {
-            val ev = events[index]
-            events[index] = ev.copy(isCompleted = !ev.isCompleted)
-            saveData()
+        val existing = events.find { it.id == eventId } ?: return
+        val updated = existing.copy(isCompleted = !existing.isCompleted)
+        val entity = EventEntity(id = updated.id, subjectId = updated.subjectId, title = updated.title, description = updated.description, date = updated.date, type = updated.type.name, isCompleted = updated.isCompleted)
+        CoroutineScope(Dispatchers.IO).launch {
+            db?.eventDao()?.insertEvent(entity)
+            refreshData()
         }
     }
 
@@ -373,57 +372,58 @@ object EamRepository {
     }
 
     fun restoreFromSnapshot(json: JSONObject): Boolean {
-        return try {
-            val cArr = json.getJSONArray("courses")
-            val sArr = json.getJSONArray("subjects")
-            val scArr = json.getJSONArray("scheduleItems")
-            val absArr = json.getJSONArray("absenceRecords")
-            val evArr = json.getJSONArray("events")
+        return runBlocking(Dispatchers.IO) {
+            try {
+                val database = db ?: return@runBlocking false
+                val cArr = json.getJSONArray("courses")
+                val sArr = json.getJSONArray("subjects")
+                val scArr = json.getJSONArray("scheduleItems")
+                val absArr = json.getJSONArray("absenceRecords")
+                val evArr = json.getJSONArray("events")
 
-            val newCourses = mutableListOf<Course>()
-            for (i in 0 until cArr.length()) {
-                val o = cArr.getJSONObject(i)
-                newCourses.add(Course(o.getString("id"), o.getString("name"), o.optString("description", "")))
+                val newCourses = mutableListOf<CourseEntity>()
+                for (i in 0 until cArr.length()) {
+                    val o = cArr.getJSONObject(i)
+                    newCourses.add(CourseEntity(o.getString("id"), o.getString("name"), o.optString("description", "")))
+                }
+
+                val newSubjects = mutableListOf<SubjectEntity>()
+                for (i in 0 until sArr.length()) {
+                    val o = sArr.getJSONObject(i)
+                    newSubjects.add(SubjectEntity(o.getString("id"), o.getString("courseId"), o.getString("name"), o.optString("professor", ""), o.optInt("maxAbsences", 15), o.optString("room", "")))
+                }
+
+                val newSchedule = mutableListOf<ScheduleItemEntity>()
+                for (i in 0 until scArr.length()) {
+                    val o = scArr.getJSONObject(i)
+                    newSchedule.add(ScheduleItemEntity(o.getString("id"), o.getString("subjectId"), o.getInt("dayOfWeek"), o.getString("startTime"), o.getString("endTime"), o.optString("room", "")))
+                }
+
+                val newAbs = mutableListOf<AbsenceRecordEntity>()
+                for (i in 0 until absArr.length()) {
+                    val o = absArr.getJSONObject(i)
+                    newAbs.add(AbsenceRecordEntity(o.getString("id"), o.getString("subjectId"), o.getString("date")))
+                }
+
+                val newEvents = mutableListOf<EventEntity>()
+                for (i in 0 until evArr.length()) {
+                    val o = evArr.getJSONObject(i)
+                    newEvents.add(EventEntity(o.getString("id"), o.getString("subjectId"), o.getString("title"), o.optString("description", ""), o.getString("date"), o.getString("type"), o.optBoolean("isCompleted", false)))
+                }
+
+                database.withTransaction {
+                    database.courseDao().insertAllCourses(newCourses)
+                    database.subjectDao().insertAllSubjects(newSubjects)
+                    database.scheduleDao().insertAllScheduleItems(newSchedule)
+                    database.absenceDao().insertAllAbsences(newAbs)
+                    database.eventDao().insertAllEvents(newEvents)
+                }
+                refreshData()
+                true
+            } catch (e: Exception) {
+                Log.e("EamRepository", "Erro na restauração: ${e.message}")
+                false
             }
-
-            val newSubjects = mutableListOf<Subject>()
-            for (i in 0 until sArr.length()) {
-                val o = sArr.getJSONObject(i)
-                newSubjects.add(Subject(o.getString("id"), o.getString("courseId"), o.getString("name"), o.optString("professor", ""), o.optInt("maxAbsences", 15), o.optString("room", "")))
-            }
-
-            val newSchedule = mutableListOf<ScheduleItem>()
-            for (i in 0 until scArr.length()) {
-                val o = scArr.getJSONObject(i)
-                newSchedule.add(ScheduleItem(o.getString("id"), o.getString("subjectId"), o.getInt("dayOfWeek"), o.getString("startTime"), o.getString("endTime"), o.optString("room", "")))
-            }
-
-            val newAbs = mutableListOf<AbsenceRecord>()
-            for (i in 0 until absArr.length()) {
-                val o = absArr.getJSONObject(i)
-                newAbs.add(AbsenceRecord(o.getString("id"), o.getString("subjectId"), o.getString("date")))
-            }
-
-            val newEvents = mutableListOf<EventItem>()
-            for (i in 0 until evArr.length()) {
-                val o = evArr.getJSONObject(i)
-                newEvents.add(EventItem(o.getString("id"), o.getString("subjectId"), o.getString("title"), o.optString("description", ""), o.getString("date"), try { EventType.valueOf(o.getString("type")) } catch (_: Exception) { EventType.PROVA }, o.optBoolean("isCompleted", false)))
-            }
-
-            courses.clear()
-            courses.addAll(newCourses)
-            subjects.clear()
-            subjects.addAll(newSubjects)
-            scheduleItems.clear()
-            scheduleItems.addAll(newSchedule)
-            absenceRecords.clear()
-            absenceRecords.addAll(newAbs)
-            events.clear()
-            events.addAll(newEvents)
-            saveData()
-            true
-        } catch (e: Exception) {
-            false
         }
     }
 }

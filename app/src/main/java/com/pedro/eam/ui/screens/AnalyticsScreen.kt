@@ -9,16 +9,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pedro.eam.data.EamRepository
 import com.pedro.eam.data.EventType
 import com.pedro.eam.ui.components.BarChart
 import com.pedro.eam.ui.components.BarChartData
+import com.pedro.eam.ui.viewmodel.AnalyticsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnalyticsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
-    val subjects = EamRepository.subjects
-    val events = EamRepository.events
+fun AnalyticsScreen(
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    viewModel: AnalyticsViewModel = viewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val subjects = uiState.subjects
+    val events = uiState.events
 
     val absencesChartData = subjects.map { sub ->
         val absCount = EamRepository.getAbsenceCount(sub.id)

@@ -20,24 +20,31 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.pedro.eam.data.EamRepository
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pedro.eam.data.EventType
 import com.pedro.eam.data.getFormattedDate
+import com.pedro.eam.ui.viewmodel.EventsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EventsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
+fun EventsScreen(
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    viewModel: EventsViewModel = viewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
     var showAddEventDialog by remember { mutableStateOf(false) }
     var expandedEventId by remember { mutableStateOf<String?>(null) }
 
-    var selectedSubjectId by remember { mutableStateOf(EamRepository.subjects.firstOrNull()?.id ?: "") }
+    var selectedSubjectId by remember { mutableStateOf(uiState.subjects.firstOrNull()?.id ?: "") }
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var date by remember { mutableStateOf(getFormattedDate(0)) }
     var eventType by remember { mutableStateOf(EventType.PROVA) }
 
-    val subjects = EamRepository.subjects
-    val events = EamRepository.events
+    val subjects = uiState.subjects
+    val events = uiState.events
 
     Box(
         modifier = Modifier
@@ -60,11 +67,6 @@ fun EventsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                item {
-                    Text("Provas, Trabalhos e Compromissos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Clique em qualquer evento para visualizar sua descrição detalhada.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-
                 if (events.isEmpty()) {
                     item {
                         Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
@@ -94,7 +96,7 @@ fun EventsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                    IconButton(onClick = { EamRepository.toggleEventComplete(event.id) }) {
+                                    IconButton(onClick = { viewModel.toggleEventComplete(event.id) }) {
                                         Icon(
                                             imageVector = if (event.isCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                                             contentDescription = "Concluir",
@@ -117,7 +119,7 @@ fun EventsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                                 }
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    IconButton(onClick = { EamRepository.removeEvent(event.id) }) {
+                                    IconButton(onClick = { viewModel.removeEvent(event.id) }) {
                                         Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = MaterialTheme.colorScheme.error)
                                     }
                                     Icon(
@@ -132,10 +134,8 @@ fun EventsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                                 Column(modifier = Modifier.padding(top = 12.dp)) {
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    Text("Descrição Definida pelo Usuário:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = if (event.description.isBlank()) "Nenhuma descrição informada para este evento." else event.description,
+                                        text = if (event.description.isBlank()) "Sem descrição." else event.description,
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
@@ -146,7 +146,6 @@ fun EventsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
             }
         }
 
-        // Floating Action Button pinned above bottom bar
         FloatingActionButton(
             onClick = { showAddEventDialog = true },
             containerColor = MaterialTheme.colorScheme.primary,
@@ -161,7 +160,7 @@ fun EventsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
     if (showAddEventDialog) {
         AlertDialog(
             onDismissRequest = { showAddEventDialog = false },
-            title = { Text("Cadastrar Novo Evento") },
+            title = { Text("Novo Evento") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (subjects.isNotEmpty()) {
@@ -187,14 +186,14 @@ fun EventsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                     OutlinedTextField(
                         value = title,
                         onValueChange = { title = it },
-                        label = { Text("Título do Evento (ex: Prova P2)") },
+                        label = { Text("Título (ex: Prova P2)") },
                         singleLine = true
                     )
 
                     OutlinedTextField(
                         value = description,
                         onValueChange = { description = it },
-                        label = { Text("Descrição detalhada (visível ao clicar)") }
+                        label = { Text("Descrição") }
                     )
 
                     OutlinedTextField(
@@ -225,13 +224,13 @@ fun EventsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                 Button(onClick = {
                     if (title.isNotBlank() && subjects.isNotEmpty()) {
                         val subId = if (selectedSubjectId.isNotBlank()) selectedSubjectId else subjects.first().id
-                        EamRepository.addEvent(subId, title, description, date, eventType)
+                        viewModel.addEvent(subId, title, description, date, eventType)
                         title = ""
                         description = ""
                         showAddEventDialog = false
                     }
                 }) {
-                    Text("Salvar Evento")
+                    Text("Salvar")
                 }
             },
             dismissButton = {

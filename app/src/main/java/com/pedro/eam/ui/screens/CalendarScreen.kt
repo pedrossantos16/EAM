@@ -21,9 +21,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pedro.eam.data.EamRepository
 import com.pedro.eam.data.EventItem
 import com.pedro.eam.data.EventType
+import com.pedro.eam.ui.viewmodel.CalendarViewModel
 import com.pedro.eam.utils.BackupManager
 import com.pedro.eam.utils.BackupSummary
 import org.json.JSONObject
@@ -34,10 +37,13 @@ import java.util.*
 @Composable
 fun CalendarScreen(
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    viewModel: CalendarViewModel = viewModel(),
     onNavigateToSchedule: () -> Unit,
     onNavigateToEvents: () -> Unit
 ) {
     val context = LocalContext.current
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
     var selectedDateForAbsence by remember { mutableStateOf<String?>(null) }
     var selectedEventForDialog by remember { mutableStateOf<EventItem?>(null) }
     var isEditingEvent by remember { mutableStateOf(false) }
@@ -46,7 +52,6 @@ fun CalendarScreen(
     var editDesc by remember { mutableStateOf("") }
     var editType by remember { mutableStateOf(EventType.PROVA) }
 
-    // Backup & Restore state
     var pendingRestoreJson by remember { mutableStateOf<String?>(null) }
     var restoreSummary by remember { mutableStateOf<BackupSummary?>(null) }
     var restoreError by remember { mutableStateOf<String?>(null) }
@@ -87,9 +92,9 @@ fun CalendarScreen(
         }
     }
 
-    val subjects = EamRepository.subjects
-    val scheduleItems = EamRepository.scheduleItems
-    val events = EamRepository.events
+    val subjects = uiState.subjects
+    val scheduleItems = uiState.scheduleItems
+    val events = uiState.events
 
     val calendar = Calendar.getInstance()
     val currentYear = calendar.get(Calendar.YEAR)
@@ -137,7 +142,6 @@ fun CalendarScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // Section 1: Absence Management Calendar
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -222,7 +226,6 @@ fun CalendarScreen(
                     }
                 }
 
-                // Section 2: Events Calendar & Interaction
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -312,7 +315,6 @@ fun CalendarScreen(
         }
     }
 
-    // Restore Summary Dialog
     if (restoreSummary != null) {
         val summary = restoreSummary!!
         AlertDialog(
@@ -340,6 +342,7 @@ fun CalendarScreen(
                                 val jsonObj = JSONObject(jsonStr)
                                 val success = EamRepository.restoreFromSnapshot(jsonObj)
                                 if (success) {
+                                    viewModel.loadData()
                                     Toast.makeText(context, "Restaurado com sucesso!", Toast.LENGTH_SHORT).show()
                                 } else {
                                     Toast.makeText(context, "Falha na restauração transacional.", Toast.LENGTH_SHORT).show()
@@ -364,7 +367,6 @@ fun CalendarScreen(
         )
     }
 
-    // Restore Error Dialog
     if (restoreError != null) {
         AlertDialog(
             onDismissRequest = { restoreError = null },
@@ -378,7 +380,6 @@ fun CalendarScreen(
         )
     }
 
-    // Dialog 1: Absence Registration for Selected Date
     if (selectedDateForAbsence != null) {
         val dateStr = selectedDateForAbsence!!
         val cal = Calendar.getInstance()
@@ -419,7 +420,7 @@ fun CalendarScreen(
                                     checked = isPresent,
                                     onCheckedChange = { checked ->
                                         isPresent = checked
-                                        EamRepository.setAbsenceForDate(sch.subjectId, dateStr, !checked)
+                                        viewModel.setAbsenceForDate(sch.subjectId, dateStr, !checked)
                                     }
                                 )
                             }
@@ -435,7 +436,6 @@ fun CalendarScreen(
         )
     }
 
-    // Dialog 2: Event Details / Edit / Delete / Finish
     if (selectedEventForDialog != null) {
         val ev = selectedEventForDialog!!
         val sub = subjects.find { it.id == ev.subjectId }
@@ -479,7 +479,7 @@ fun CalendarScreen(
                     if (!ev.isCompleted && !isEditingEvent) {
                         Button(
                             onClick = {
-                                EamRepository.toggleEventComplete(ev.id)
+                                viewModel.toggleEventComplete(ev.id)
                                 selectedEventForDialog = events.find { it.id == ev.id }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
@@ -491,7 +491,7 @@ fun CalendarScreen(
                     if (!ev.isCompleted) {
                         if (isEditingEvent) {
                             Button(onClick = {
-                                EamRepository.updateEvent(ev.id, editTitle, editDesc, ev.date, editType)
+                                viewModel.updateEvent(ev.id, editTitle, editDesc, ev.date, editType)
                                 selectedEventForDialog = events.find { it.id == ev.id }
                                 isEditingEvent = false
                             }) {
@@ -508,7 +508,7 @@ fun CalendarScreen(
                             }
                             OutlinedButton(
                                 onClick = {
-                                    EamRepository.removeEvent(ev.id)
+                                    viewModel.removeEvent(ev.id)
                                     selectedEventForDialog = null
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer)

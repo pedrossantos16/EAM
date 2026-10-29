@@ -13,7 +13,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.pedro.eam.data.EamRepository
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pedro.eam.ui.viewmodel.ScheduleViewModel
 
 val daysOfWeekMap = mapOf(
     1 to "Segunda-feira",
@@ -27,16 +29,21 @@ val daysOfWeekMap = mapOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScheduleScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
+fun ScheduleScreen(
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    viewModel: ScheduleViewModel = viewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
     var showAddDialog by remember { mutableStateOf(false) }
-    var selectedSubjectId by remember { mutableStateOf(EamRepository.subjects.firstOrNull()?.id ?: "") }
+    var selectedSubjectId by remember { mutableStateOf(uiState.subjects.firstOrNull()?.id ?: "") }
     var selectedDayOfWeek by remember { mutableStateOf(1) }
     var startTime by remember { mutableStateOf("08:00") }
     var endTime by remember { mutableStateOf("09:40") }
     var room by remember { mutableStateOf("") }
 
-    val subjects = EamRepository.subjects
-    val scheduleItems = EamRepository.scheduleItems
+    val subjects = uiState.subjects
+    val scheduleItems = uiState.scheduleItems
 
     Box(
         modifier = Modifier
@@ -59,15 +66,10 @@ fun ScheduleScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                item {
-                    Text("Organização de Aulas por Dia da Semana", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Associe cada matéria aos seus horários e dias específicos.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-
                 if (scheduleItems.isEmpty()) {
                     item {
                         Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Text("Nenhum horário cadastrado na grade.")
+                            Text("Nenhum horário cadastrado.")
                         }
                     }
                 }
@@ -106,8 +108,8 @@ fun ScheduleScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                                                 Text(subject?.name ?: "Matéria desconhecida", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
                                                 Text("⏰ ${item.startTime} - ${item.endTime} • Sala: ${item.room.ifBlank { subject?.room ?: "N/A" }}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
-                                            IconButton(onClick = { EamRepository.removeScheduleItem(item.id) }) {
-                                                Icon(Icons.Default.Delete, contentDescription = "Remover Horário", tint = MaterialTheme.colorScheme.error)
+                                            IconButton(onClick = { viewModel.removeScheduleItem(item.id) }) {
+                                                Icon(Icons.Default.Delete, contentDescription = "Remover", tint = MaterialTheme.colorScheme.error)
                                             }
                                         }
                                     }
@@ -119,7 +121,6 @@ fun ScheduleScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
             }
         }
 
-        // Floating Action Button pinned above bottom bar
         FloatingActionButton(
             onClick = { showAddDialog = true },
             containerColor = MaterialTheme.colorScheme.primary,
@@ -134,7 +135,7 @@ fun ScheduleScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
-            title = { Text("Adicionar Horário na Grade") },
+            title = { Text("Adicionar Horário") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (subjects.isNotEmpty()) {
@@ -175,13 +176,13 @@ fun ScheduleScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                     OutlinedTextField(
                         value = startTime,
                         onValueChange = { startTime = it },
-                        label = { Text("Horário Início (ex: 08:00)") },
+                        label = { Text("Início (ex: 08:00)") },
                         singleLine = true
                     )
                     OutlinedTextField(
                         value = endTime,
                         onValueChange = { endTime = it },
-                        label = { Text("Horário Fim (ex: 09:40)") },
+                        label = { Text("Fim (ex: 09:40)") },
                         singleLine = true
                     )
                     OutlinedTextField(
@@ -196,7 +197,7 @@ fun ScheduleScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                 Button(onClick = {
                     if (subjects.isNotEmpty()) {
                         val subId = if (selectedSubjectId.isNotBlank()) selectedSubjectId else subjects.first().id
-                        EamRepository.addScheduleItem(subId, selectedDayOfWeek, startTime, endTime, room)
+                        viewModel.addScheduleItem(subId, selectedDayOfWeek, startTime, endTime, room)
                         showAddDialog = false
                     }
                 }) {

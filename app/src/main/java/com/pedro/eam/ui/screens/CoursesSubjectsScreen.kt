@@ -15,25 +15,33 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pedro.eam.data.EamRepository
+import com.pedro.eam.ui.viewmodel.CoursesViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
+fun CoursesSubjectsScreen(
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    viewModel: CoursesViewModel = viewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
     var showAddCourseDialog by remember { mutableStateOf(false) }
     var showAddSubjectDialog by remember { mutableStateOf(false) }
 
     var newCourseName by remember { mutableStateOf("") }
     var newCourseDesc by remember { mutableStateOf("") }
 
-    var selectedCourseIdForSubject by remember { mutableStateOf(EamRepository.courses.firstOrNull()?.id ?: "") }
+    var selectedCourseIdForSubject by remember { mutableStateOf(uiState.courses.firstOrNull()?.id ?: "") }
     var newSubjectName by remember { mutableStateOf("") }
     var newSubjectProf by remember { mutableStateOf("") }
     var newSubjectRoom by remember { mutableStateOf("") }
     var newSubjectMaxAbs by remember { mutableStateOf("15") }
 
-    val courses = EamRepository.courses
-    val subjects = EamRepository.subjects
+    val courses = uiState.courses
+    val subjects = uiState.subjects
 
     Box(
         modifier = Modifier
@@ -88,7 +96,7 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                                         }
                                     }
                                 }
-                                IconButton(onClick = { EamRepository.removeCourse(course.id) }) {
+                                IconButton(onClick = { viewModel.removeCourse(course.id) }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Excluir Curso", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
@@ -130,7 +138,7 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                                                 Text("Faltas: $absCount / Máx: ${sub.maxAbsences}", style = MaterialTheme.typography.bodySmall, color = if (isOverOrNear) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
 
-                                            IconButton(onClick = { EamRepository.removeSubject(sub.id) }) {
+                                            IconButton(onClick = { viewModel.removeSubject(sub.id) }) {
                                                 Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
                                             }
                                         }
@@ -188,7 +196,7 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
             confirmButton = {
                 Button(onClick = {
                     if (newCourseName.isNotBlank()) {
-                        EamRepository.addCourse(newCourseName, newCourseDesc)
+                        viewModel.addCourse(newCourseName, newCourseDesc)
                         newCourseName = ""
                         newCourseDesc = ""
                         showAddCourseDialog = false
@@ -261,7 +269,7 @@ fun CoursesSubjectsScreen(contentPadding: PaddingValues = PaddingValues(0.dp)) {
                     if (newSubjectName.isNotBlank() && courses.isNotEmpty()) {
                         val maxAbs = newSubjectMaxAbs.toIntOrNull() ?: 15
                         val targetCourseId = if (selectedCourseIdForSubject.isNotBlank()) selectedCourseIdForSubject else courses.first().id
-                        EamRepository.addSubject(targetCourseId, newSubjectName, newSubjectProf, maxAbs, newSubjectRoom)
+                        viewModel.addSubject(targetCourseId, newSubjectName, newSubjectProf, maxAbs, newSubjectRoom)
                         newSubjectName = ""
                         newSubjectProf = ""
                         newSubjectRoom = ""
