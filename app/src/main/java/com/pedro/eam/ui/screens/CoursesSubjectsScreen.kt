@@ -17,7 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pedro.eam.data.Course
 import com.pedro.eam.data.EamRepository
+import com.pedro.eam.data.Subject
 import com.pedro.eam.ui.viewmodel.CoursesViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,6 +32,9 @@ fun CoursesSubjectsScreen(
 
     var showAddCourseDialog by remember { mutableStateOf(false) }
     var showAddSubjectDialog by remember { mutableStateOf(false) }
+
+    var coursePendingDelete by remember { mutableStateOf<Course?>(null) }
+    var subjectPendingDelete by remember { mutableStateOf<Subject?>(null) }
 
     var newCourseName by remember { mutableStateOf("") }
     var newCourseDesc by remember { mutableStateOf("") }
@@ -67,7 +72,7 @@ fun CoursesSubjectsScreen(
                 if (courses.isEmpty()) {
                     item {
                         Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Text("Nenhum curso cadastrado.")
+                            Text("Nenhum curso cadastrado. Adicione um curso abaixo.")
                         }
                     }
                 }
@@ -96,7 +101,7 @@ fun CoursesSubjectsScreen(
                                         }
                                     }
                                 }
-                                IconButton(onClick = { viewModel.removeCourse(course.id) }) {
+                                IconButton(onClick = { coursePendingDelete = course }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Excluir Curso", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
@@ -138,7 +143,7 @@ fun CoursesSubjectsScreen(
                                                 Text("Faltas: $absCount / Máx: ${sub.maxAbsences}", style = MaterialTheme.typography.bodySmall, color = if (isOverOrNear) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
 
-                                            IconButton(onClick = { viewModel.removeSubject(sub.id) }) {
+                                            IconButton(onClick = { subjectPendingDelete = sub }) {
                                                 Icon(Icons.Default.Delete, contentDescription = "Excluir", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
                                             }
                                         }
@@ -171,6 +176,79 @@ fun CoursesSubjectsScreen(
                 Icon(Icons.Default.Add, contentDescription = "Novo Curso")
             }
         }
+    }
+
+    // Course Deletion Impact Dialog
+    if (coursePendingDelete != null) {
+        val course = coursePendingDelete!!
+        val impact = viewModel.getCourseImpact(course.id)
+        AlertDialog(
+            onDismissRequest = { coursePendingDelete = null },
+            title = { Text("Excluir ${course.name}?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Também serão removidos:")
+                    Text("• ${impact.subjects} matérias")
+                    Text("• ${impact.schedules} horários")
+                    Text("• ${impact.events} eventos")
+                    Text("• ${impact.absences} registros de frequência")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Esta ação não pode ser desfeita.", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.removeCourse(course.id)
+                        coursePendingDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Excluir")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { coursePendingDelete = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // Subject Deletion Impact Dialog
+    if (subjectPendingDelete != null) {
+        val subject = subjectPendingDelete!!
+        val impact = viewModel.getSubjectImpact(subject.id)
+        AlertDialog(
+            onDismissRequest = { subjectPendingDelete = null },
+            title = { Text("Excluir ${subject.name}?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Também serão removidos:")
+                    Text("• ${impact.schedules} horários")
+                    Text("• ${impact.events} eventos")
+                    Text("• ${impact.absences} registros de frequência")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Esta ação não pode ser desfeita.", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.removeSubject(subject.id)
+                        subjectPendingDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Excluir")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { subjectPendingDelete = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 
     if (showAddCourseDialog) {

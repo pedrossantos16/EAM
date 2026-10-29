@@ -1,5 +1,6 @@
 package com.pedro.eam.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,6 +35,7 @@ fun ScheduleScreen(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     viewModel: ScheduleViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     var showAddDialog by remember { mutableStateOf(false) }
@@ -52,7 +55,7 @@ fun ScheduleScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
-                title = { Text("Grade Curricular & Horários", fontWeight = FontWeight.Bold) },
+                title = { Text("Grade de Horários", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -197,8 +200,13 @@ fun ScheduleScreen(
                 Button(onClick = {
                     if (subjects.isNotEmpty()) {
                         val subId = if (selectedSubjectId.isNotBlank()) selectedSubjectId else subjects.first().id
-                        viewModel.addScheduleItem(subId, selectedDayOfWeek, startTime, endTime, room)
-                        showAddDialog = false
+                        viewModel.validateAndAddScheduleItem(subId, selectedDayOfWeek, startTime, endTime, room) { success, errorMsg ->
+                            if (success) {
+                                showAddDialog = false
+                            } else {
+                                Toast.makeText(context, errorMsg ?: "Erro", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     }
                 }) {
                     Text("Adicionar")

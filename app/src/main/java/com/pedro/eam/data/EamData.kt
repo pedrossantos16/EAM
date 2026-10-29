@@ -1,5 +1,6 @@
 package com.pedro.eam.data
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
@@ -24,6 +25,13 @@ data class Course(
     val description: String = ""
 )
 
+data class CourseImpact(
+    val subjects: Int,
+    val schedules: Int,
+    val events: Int,
+    val absences: Int
+)
+
 data class Subject(
     val id: String = UUID.randomUUID().toString(),
     val courseId: String,
@@ -31,6 +39,12 @@ data class Subject(
     val professor: String = "",
     val maxAbsences: Int = 15,
     val room: String = ""
+)
+
+data class SubjectImpact(
+    val schedules: Int,
+    val events: Int,
+    val absences: Int
 )
 
 data class ScheduleItem(
@@ -425,5 +439,36 @@ object EamRepository {
                 false
             }
         }
+    }
+
+    @SuppressLint("NewApi")
+    fun checkScheduleConflict(subjectId: String, dayOfWeek: Int, startTime: java.time.LocalTime, endTime: java.time.LocalTime, excludeItemId: String? = null): Boolean {
+        return scheduleItems.any { item ->
+            if (item.id == excludeItemId) return@any false
+            if (item.dayOfWeek != dayOfWeek) return@any false
+            try {
+                val existingStart = java.time.LocalTime.parse(item.startTime)
+                val existingEnd = java.time.LocalTime.parse(item.endTime)
+                startTime.isBefore(existingEnd) && endTime.isAfter(existingStart)
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
+    fun getCourseImpact(courseId: String): CourseImpact {
+        val subIds = subjects.filter { it.courseId == courseId }.map { it.id }
+        val subjectsCount = subIds.size
+        val schedulesCount = scheduleItems.count { subIds.contains(it.subjectId) }
+        val eventsCount = events.count { subIds.contains(it.subjectId) }
+        val absencesCount = absenceRecords.count { subIds.contains(it.subjectId) }
+        return CourseImpact(subjectsCount, schedulesCount, eventsCount, absencesCount)
+    }
+
+    fun getSubjectImpact(subjectId: String): SubjectImpact {
+        val schedulesCount = scheduleItems.count { it.subjectId == subjectId }
+        val eventsCount = events.count { it.subjectId == subjectId }
+        val absencesCount = absenceRecords.count { it.subjectId == subjectId }
+        return SubjectImpact(schedulesCount, eventsCount, absencesCount)
     }
 }

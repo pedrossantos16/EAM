@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalTime
 
 data class ScheduleUiState(
     val scheduleItems: List<ScheduleItem> = emptyList(),
@@ -38,10 +39,35 @@ class ScheduleViewModel : ViewModel() {
         }
     }
 
-    fun addScheduleItem(subjectId: String, dayOfWeek: Int, startTime: String, endTime: String, room: String) {
+    fun validateAndAddScheduleItem(
+        subjectId: String,
+        dayOfWeek: Int,
+        startTimeStr: String,
+        endTimeStr: String,
+        room: String,
+        onResult: (Boolean, String?) -> Unit
+    ) {
         viewModelScope.launch {
-            EamRepository.addScheduleItem(subjectId, dayOfWeek, startTime, endTime, room)
-            loadData()
+            try {
+                val start = LocalTime.parse(startTimeStr)
+                val end = LocalTime.parse(endTimeStr)
+
+                if (!end.isAfter(start)) {
+                    onResult(false, "O horário de término deve ser posterior ao início.")
+                    return@launch
+                }
+
+                if (EamRepository.checkScheduleConflict(subjectId, dayOfWeek, start, end)) {
+                    onResult(false, "Conflito de horário! Já existe outra aula neste intervalo.")
+                    return@launch
+                }
+
+                EamRepository.addScheduleItem(subjectId, dayOfWeek, startTimeStr, endTimeStr, room)
+                loadData()
+                onResult(true, null)
+            } catch (e: Exception) {
+                onResult(false, "Formato de horário inválido. Use HH:mm.")
+            }
         }
     }
 

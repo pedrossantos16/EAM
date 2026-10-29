@@ -2,9 +2,7 @@ package com.pedro.eam.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.pedro.eam.data.Course
-import com.pedro.eam.data.EamRepository
-import com.pedro.eam.data.Subject
+import com.pedro.eam.data.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,7 +28,6 @@ class CoursesViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-                // EamRepository updates its stateLists, we can expose them or read them
                 _uiState.update {
                     it.copy(
                         courses = EamRepository.courses,
@@ -70,5 +67,13 @@ class CoursesViewModel : ViewModel() {
             EamRepository.removeSubject(subjectId)
             loadData()
         }
+    }
+
+    fun getCourseImpact(courseId: String): CourseImpact {
+        return EamRepository.getCourseImpact(courseId)
+    }
+
+    fun getSubjectImpact(subjectId: String): SubjectImpact {
+        return EamRepository.getSubjectImpact(subjectId)
     }
 }
