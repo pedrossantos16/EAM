@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.io.FileInputStream
 
 plugins {
     alias(libs.plugins.android.application)
@@ -12,13 +13,18 @@ val versionProperties = Properties().apply {
     }
 }
 val appVersionCode = versionProperties.getProperty("VERSION_CODE", "1").toInt()
-val appVersionName = versionProperties.getProperty("VERSION_NAME", "1.0.0")
+val appVersionName = versionProperties.getProperty("VERSION_NAME", "1.0.18")
+
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        FileInputStream(keystorePropertiesFile).use { load(it) }
+    }
+}
 
 android {
     namespace = "com.pedro.eam"
-    compileSdk {
-        version = release(37)
-    }
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.pedro.eam"
@@ -30,13 +36,29 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    buildTypes {
-        release {
-            optimization {
-                enable = false
+    signingConfigs {
+        create("release") {
+            val storeFileProp = keystoreProperties.getProperty("storeFile") ?: System.getenv("EAM_KEYSTORE_PATH")
+            val storePasswordProp = keystoreProperties.getProperty("storePassword") ?: System.getenv("EAM_KEYSTORE_PASSWORD")
+            val keyAliasProp = keystoreProperties.getProperty("keyAlias") ?: System.getenv("EAM_KEY_ALIAS")
+            val keyPasswordProp = keystoreProperties.getProperty("keyPassword") ?: System.getenv("EAM_KEY_PASSWORD")
+
+            if (!storeFileProp.isNullOrBlank() && !storePasswordProp.isNullOrBlank() && !keyAliasProp.isNullOrBlank() && !keyPasswordProp.isNullOrBlank()) {
+                storeFile = file(storeFileProp)
+                storePassword = storePasswordProp
+                keyAlias = keyAliasProp
+                keyPassword = keyPasswordProp
             }
         }
     }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11

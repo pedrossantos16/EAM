@@ -4,11 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Event
@@ -17,6 +13,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -28,8 +25,8 @@ import com.pedro.eam.ui.screens.CoursesSubjectsScreen
 import com.pedro.eam.ui.screens.EventsScreen
 import com.pedro.eam.ui.screens.ScheduleScreen
 import com.pedro.eam.ui.theme.EAMTheme
-import com.pedro.eam.utils.UpdateInfo
 import com.pedro.eam.utils.UpdateManager
+import com.pedro.eam.utils.UpdateState
 import kotlinx.coroutines.launch
 
 sealed class BottomNavTab(val title: String, val icon: ImageVector) {
@@ -49,76 +46,108 @@ class MainActivity : ComponentActivity() {
             EAMTheme {
                 val context = LocalContext.current
                 var currentTab by remember { mutableStateOf<BottomNavTab>(BottomNavTab.Calendar) }
-                var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
                 val coroutineScope = rememberCoroutineScope()
+                val updateState by UpdateManager.state.collectAsState()
 
                 LaunchedEffect(Unit) {
                     coroutineScope.launch {
-                        val currentVersionCode = try {
-                            val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                                pInfo.longVersionCode.toInt()
-                            } else {
-                                @Suppress("DEPRECATION")
-                                pInfo.versionCode
-                            }
-                        } catch (_: Exception) {
-                            1
-                        }
-
-                        val info = UpdateManager.checkForUpdate(currentVersionCode)
-                        if (info != null) {
-                            updateInfo = info
-                        }
+                        UpdateManager.checkForUpdate(context)
                     }
                 }
 
-                if (updateInfo != null) {
-                    var isDownloading by remember { mutableStateOf(false) }
-                    var downloadProgress by remember { mutableStateOf(0f) }
-
-                    AlertDialog(
-                        onDismissRequest = { if (!isDownloading) updateInfo = null },
-                        title = { Text(if (isDownloading) "Baixando Atualização..." else "Nova Atualização Disponível! 🚀") },
-                        text = {
-                            Column {
-                                if (isDownloading) {
+                when (val state = updateState) {
+                    is UpdateState.UpdateAvailable -> {
+                        AlertDialog(
+                            onDismissRequest = { UpdateManager.resetState() },
+                            title = { Text("Nova Atualização Disponível! 🚀") },
+                            text = {
+                                Column {
+                                    Text("Versão ${state.info.versionName} está disponível.")
                                     Spacer(modifier = Modifier.padding(top = 8.dp))
-                                    LinearProgressIndicator(progress = { downloadProgress }, modifier = Modifier.fillMaxWidth())
-                                    Spacer(modifier = Modifier.padding(top = 8.dp))
-                                    Text("Baixando APK: ${(downloadProgress * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
-                                } else {
-                                    Text("Versão ${updateInfo?.versionName} está disponível no GitHub.")
-                                    Spacer(modifier = Modifier.padding(top = 8.dp))
-                                    Text("Novidades: ${updateInfo?.releaseNotes}", style = MaterialTheme.typography.bodySmall)
+                                    Text("Novidades: ${state.info.releaseNotes}", style = MaterialTheme.typography.bodySmall)
                                 }
-                            }
-                        },
-                        confirmButton = {
-                            if (!isDownloading) {
+                            },
+                            confirmButton = {
                                 Button(onClick = {
-                                    isDownloading = true
                                     coroutineScope.launch {
-                                        updateInfo?.let {
-                                            UpdateManager.downloadAndInstall(context, it.apkUrl) { progress ->
-                                                downloadProgress = progress
-                                            }
-                                        }
-                                        isDownloading = false
+                                        UpdateManager.startUpdate(context, state.info)
                                     }
                                 }) {
                                     Text("Atualizar Agora")
                                 }
-                            }
-                        },
-                        dismissButton = {
-                            if (!isDownloading) {
-                                TextButton(onClick = { updateInfo = null }) {
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { UpdateManager.resetState() }) {
                                     Text("Depois")
                                 }
                             }
-                        }
-                    )
+                        )
+                    }
+                    is UpdateState.PermissionRequired -> {
+                        AlertDialog(
+                            onDismissRequest = { UpdateManager.resetState() },
+                            title = { Text("Permissão Necessária") },
+                            text = { Text("Para atualizar o EAM, você precisa permitir a instalação de fontes desconhecidas nas configurações do Android.") },
+                            confirmButton = {
+                                Button(onClick = {
+                                    UpdateManager.openInstallPermissionSettings(context)
+                                    UpdateManager.resetState()
+                                }) {
+                                    Text("Abrir Configurações")
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { UpdateManager.resetState() }) {
+                                    Text("Cancelar")
+                                }
+                            }
+                        )
+                    }
+                    is UpdateState.Downloading -> {
+                        AlertDialog(
+                            onDismissRequest = { },
+                            title = { Text("Baixando Atualização...") },
+                            text = {
+                                Column {
+                                    LinearProgressIndicator(progress = { state.progress }, modifier = Modifier.fillMaxWidth())
+                                    Spacer(modifier = Modifier.padding(top = 8.dp))
+                                    Text("Progresso: ${(state.progress * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+                                }
+                            },
+                            confirmButton = { }
+                        )
+                    }
+                    is UpdateState.Verifying -> {
+                        AlertDialog(
+                            onDismissRequest = { },
+                            title = { Text("Verificando APK...") },
+                            text = {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                                    CircularProgressIndicator()
+                                    Spacer(modifier = Modifier.padding(top = 8.dp))
+                                    Text("Validando integridade e assinatura...", style = MaterialTheme.typography.bodySmall)
+                                }
+                            },
+                            confirmButton = { }
+                        )
+                    }
+                    is UpdateState.Failed -> {
+                        AlertDialog(
+                            onDismissRequest = { UpdateManager.resetState() },
+                            title = { Text("Falha na Atualização") },
+                            text = {
+                                Column {
+                                    Text(state.message, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            },
+                            confirmButton = {
+                                Button(onClick = { UpdateManager.resetState() }) {
+                                    Text("Tentar Novamente")
+                                }
+                            }
+                        )
+                    }
+                    else -> {}
                 }
 
                 val tabs = listOf(

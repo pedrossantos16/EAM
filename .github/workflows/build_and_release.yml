@@ -1,4 +1,4 @@
-name: Build and Release OTA Update
+name: Build and Release OTA Update (Signed Release)
 
 on:
   push:
@@ -35,34 +35,82 @@ jobs:
           if [ -f version.properties ]; then
             VERSION_CODE=$(grep 'VERSION_CODE' version.properties | cut -d '=' -f 2)
             NEW_VERSION_CODE=$((VERSION_CODE + 1))
+            NEW_VERSION_NAME="1.0.$NEW_VERSION_CODE"
             
             sed -i "s/VERSION_CODE=$VERSION_CODE/VERSION_CODE=$NEW_VERSION_CODE/" version.properties
+            sed -i "s/VERSION_NAME=.*/VERSION_NAME=$NEW_VERSION_NAME/" version.properties
             
-            # URL de download direto do APK binário na release mais recente
-            echo "{
-              \"versionCode\": $NEW_VERSION_CODE,
-              \"versionName\": \"1.0.$NEW_VERSION_CODE\",
-              \"apkUrl\": \"https://github.com/${{ github.repository }}/releases/latest/download/app-debug.apk\",
-              \"releaseNotes\": \"Nova versão automática #$NEW_VERSION_CODE gerada via commit.\"
-            }" > version.json
-
-            git add version.properties version.json
-            git commit -m "chore: bump version to $NEW_VERSION_CODE [skip ci]"
-            git push
+            echo "NEW_VERSION_CODE=$NEW_VERSION_CODE" >> $GITHUB_ENV
+            echo "NEW_VERSION_NAME=$NEW_VERSION_NAME" >> $GITHUB_ENV
           fi
 
-      - name: Build Debug APK (Signed automatically by Android)
-        run: ./gradlew assembleDebug
+      - name: Decode Keystore from Secrets
+        run: |
+          if [ -n "${{ secrets.EAM_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.EAM_KEYSTORE_BASE64 }}" | base64 --decode > app/release.jks
+          fi
 
-      - name: Upload APK to GitHub Release
+      - name: Build Release APK
+        env:
+          EAM_KEYSTORE_PATH: "app/release.jks"
+          EAM_KEYSTORE_PASSWORD: "${{ secrets.EAM_KEYSTORE_PASSWORD }}"
+          EAM_KEY_ALIAS: "${{ secrets.EAM_KEY_ALIAS }}"
+          EAM_KEY_PASSWORD: "${{ secrets.EAM_KEY_PASSWORD }}"
+        run: ./gradlew assembleRelease
+
+      - name: Verify APK Signature & Details
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          echo "Found APK: $APK_PATH"
+          
+          NEW_APK_NAME="EAM-${{ env.NEW_VERSION_NAME }}.apk"
+          mv "$APK_PATH" "app/build/outputs/apk/release/$NEW_APK_NAME"
+          FINAL_APK_PATH="app/build/outputs/apk/release/$NEW_APK_NAME"
+          
+          echo "FINAL_APK_PATH=$FINAL_APK_PATH" >> $GITHUB_ENV
+          echo "FINAL_APK_NAME=$NEW_APK_NAME" >> $GITHUB_ENV
+
+          SHA256=$(sha256sum "$FINAL_APK_PATH" | awk '{print $1}')
+          APK_SIZE=$(stat -c%s "$FINAL_APK_PATH")
+          
+          echo "SHA256=$SHA256" >> $GITHUB_ENV
+          echo "APK_SIZE=$APK_SIZE" >> $GITHUB_ENV
+
+          # Verificar assinatura (se keystore existir)
+          if [ -f "app/release.jks" ]; then
+            $ANDROID_HOME/build-tools/34.0.0/apksigner verify --verbose --print-certs "$FINAL_APK_PATH"
+          fi
+
+      - name: Create Git Tag and GitHub Release
+        id: create_release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/') == false
         with:
-          files: app/build/outputs/apk/debug/app-debug.apk
-          tag_name: v1.0.${{ github.run_number }}
-          name: "EAM v1.0.${{ github.run_number }}"
-          body: "Nova atualização automática gerada via GitHub Actions. Baixe o APK abaixo."
+          files: ${{ env.FINAL_APK_PATH }}
+          tag_name: v${{ env.NEW_VERSION_NAME }}
+          name: "EAM v${{ env.NEW_VERSION_NAME }}"
+          body: "Nova versão release assinado v${{ env.NEW_VERSION_NAME }} gerada automaticamente."
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update version.json and Commit
+        run: |
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/v${{ env.NEW_VERSION_NAME }}/${{ env.FINAL_APK_NAME }}"
+          
+          echo "{
+            \"versionCode\": ${{ env.NEW_VERSION_CODE }},
+            \"versionName\": \"${{ env.NEW_VERSION_NAME }}\",
+            \"apkUrl\": \"$DOWNLOAD_URL\",
+            \"sha256\": \"${{ env.SHA256 }}\",
+            \"apkSize\": ${{ env.APK_SIZE }},
+            \"minimumSupportedVersionCode\": 1,
+            \"releaseNotes\": \"Nova versão de produção v${{ env.NEW_VERSION_NAME }}.\"
+          }" > version.json
+
+          git add version.properties version.json
+          git commit -m "release: bump version to ${{ env.NEW_VERSION_NAME }} [skip ci]"
+          git push
+          
+          # Remover keystore temporário
+          rm -f app/release.jks
