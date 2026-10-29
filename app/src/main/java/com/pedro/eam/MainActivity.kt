@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.pedro.eam.data.EamRepository
 import com.pedro.eam.ui.screens.AnalyticsScreen
 import com.pedro.eam.ui.screens.CalendarScreen
 import com.pedro.eam.ui.screens.CoursesSubjectsScreen
@@ -42,6 +43,7 @@ sealed class BottomNavTab(val title: String, val icon: ImageVector) {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        EamRepository.init(applicationContext)
         enableEdgeToEdge()
         setContent {
             EAMTheme {
