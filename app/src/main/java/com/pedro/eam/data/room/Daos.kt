@@ -79,6 +79,24 @@ interface AbsenceDao {
 }
 
 @Dao
+interface AttendanceDao {
+    @Query("SELECT * FROM attendance_records")
+    suspend fun getAllAttendancesList(): List<AttendanceRecordEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAttendance(record: AttendanceRecordEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllAttendances(records: List<AttendanceRecordEntity>)
+
+    @Query("DELETE FROM attendance_records WHERE subjectId = :subjectId AND scheduleItemId = :scheduleItemId AND date = :date")
+    suspend fun deleteAttendance(subjectId: String, scheduleItemId: String?, date: String)
+
+    @Query("DELETE FROM attendance_records WHERE subjectId = :subjectId")
+    suspend fun deleteAttendancesForSubject(subjectId: String)
+}
+
+@Dao
 interface EventDao {
     @Query("SELECT * FROM events")
     fun getAllEvents(): Flow<List<EventEntity>>

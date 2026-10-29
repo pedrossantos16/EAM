@@ -73,6 +73,35 @@ data class AbsenceRecordEntity(
 )
 
 @Entity(
+    tableName = "attendance_records",
+    foreignKeys = [
+        ForeignKey(
+            entity = SubjectEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["subjectId"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = ScheduleItemEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["scheduleItemId"],
+            onDelete = ForeignKey.SET_NULL
+        )
+    ],
+    indices = [Index("subjectId"), Index("scheduleItemId"), Index(value = ["subjectId", "scheduleItemId", "date"], unique = true)]
+)
+data class AttendanceRecordEntity(
+    @PrimaryKey val id: String,
+    val subjectId: String,
+    val scheduleItemId: String?,
+    val date: String,
+    val status: String, // PRESENT, ABSENT, PARTIAL
+    val periodsAbsent: Int,
+    val observation: String,
+    val origin: String // NORMAL, MIGRATED_LEGACY
+)
+
+@Entity(
     tableName = "events",
     foreignKeys = [
         ForeignKey(
