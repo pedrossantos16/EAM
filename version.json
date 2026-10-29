@@ -1,9 +1,9 @@
 {
-  "versionCode": 28,
-  "versionName": "1.0.28",
-  "apkUrl": "https://github.com/pedrossantos16/EAM/releases/download/v1.0.28/EAM-1.0.28.apk",
-  "sha256": "66249592ece68e688b7a4a4d1f32aa434fc60ed55fa8fd36ac14580b5cfb2b47",
-  "apkSize": 13211492,
+  "versionCode": 29,
+  "versionName": "1.0.29",
+  "apkUrl": "https://github.com/pedrossantos16/EAM/releases/download/v1.0.29/EAM-1.0.29.apk",
+  "sha256": "236bd0eafee73ef2896122ca0829bf1e23f910b19ba8e938eac5fb38c3788cfd",
+  "apkSize": 13211796,
   "minimumSupportedVersionCode": 1,
-  "releaseNotes": "Nova versão de produção v1.0.28."
+  "releaseNotes": "Nova versão de produção v1.0.29."
 }
